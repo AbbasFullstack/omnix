@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { Zap, Send, Cpu, Image as ImageIcon, X, GitBranch, LogOut, Mic, History, Plus, Brain } from 'lucide-react';
+import { Zap, Send, Cpu, Image as ImageIcon, X, GitBranch, LogOut, Mic, History, Plus, Brain, Volume2, VolumeX } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface Msg {
@@ -38,6 +38,7 @@ export default function Home() {
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [memoryList, setMemoryList] = useState<any[]>([]);
   const [memoryInput, setMemoryInput] = useState('');
+  const [speakOn, setSpeakOn] = useState(false);
   const [image, setImage] = useState<string | null>(null);
   const [showRepo, setShowRepo] = useState(false);
   const [repoUrl, setRepoUrl] = useState('');
@@ -198,6 +199,32 @@ export default function Home() {
     rec.onerror = () => setListening(false);
     setListening(true);
     rec.start();
+  };
+
+  useEffect(() => {
+    setSpeakOn(localStorage.getItem('omnix_tts') === '1');
+  }, []);
+
+  const speak = (text: string) => {
+    try {
+      const clean = text.replace(/[*#`_]/g, '').slice(0, 500);
+      const u = new SpeechSynthesisUtterance(clean);
+      const voices = speechSynthesis.getVoices();
+      const v =
+        voices.find(x => x.lang.startsWith('ur')) ||
+        voices.find(x => x.lang.startsWith('hi')) ||
+        voices.find(x => x.lang.startsWith('en'));
+      if (v) u.voice = v;
+      speechSynthesis.cancel();
+      speechSynthesis.speak(u);
+    } catch {}
+  };
+
+  const toggleSpeak = () => {
+    const next = !speakOn;
+    setSpeakOn(next);
+    localStorage.setItem('omnix_tts', next ? '1' : '0');
+    if (!next) speechSynthesis.cancel();
   };
 
   const loadMemory = async () => {
@@ -413,6 +440,7 @@ export default function Home() {
           }
         }
       }
+      if (speakOn && finalAi) speak(finalAi);
       await saveChat([...messages, { role: 'user', text: question }, { role: 'ai', text: finalAi }], question);
       setImage(null);
     } catch {
@@ -506,6 +534,13 @@ export default function Home() {
               }`}
             >
               <GitBranch className="w-3 h-3" /> {ghUser ? ghUser.login : 'Connect'}
+            </button>
+            <button
+              onClick={toggleSpeak}
+              className={`px-2.5 py-1.5 rounded-lg border text-[10px] font-bold flex items-center gap-1.5 transition ${speakOn ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400' : 'bg-white/[0.04] border-white/[0.08] text-white/50'}`}
+              title="AI awaaz mein bole"
+            >
+              {speakOn ? <Volume2 className="w-3 h-3" /> : <VolumeX className="w-3 h-3" />}
             </button>
             <button
               onClick={loadMemory}
