@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { Zap, Send, Cpu, Image as ImageIcon, X, GitBranch, LogOut } from 'lucide-react';
+import { Zap, Send, Cpu, Image as ImageIcon, X, GitBranch, LogOut, Mic } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface Msg {
@@ -31,6 +31,7 @@ export default function Home() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [streaming, setStreaming] = useState(false);
+  const [listening, setListening] = useState(false);
   const [image, setImage] = useState<string | null>(null);
   const [showRepo, setShowRepo] = useState(false);
   const [repoUrl, setRepoUrl] = useState('');
@@ -170,6 +171,27 @@ export default function Home() {
       setMessages(ms => [...ms, { role: 'ai', text: '⚠️ Repo fetch nahi hui - URL check karein (public repo honi chahiye)' }]);
     }
     setRepoLoading(false);
+  };
+
+  const toggleVoice = () => {
+    const SR: any = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) {
+      setMessages(m => [...m, { role: 'ai', text: '⚠️ Is browser mein voice support nahi hai' }]);
+      return;
+    }
+    if (listening) return;
+    const rec = new SR();
+    rec.lang = 'ur-PK';
+    rec.interimResults = true;
+    rec.onresult = (e: any) => {
+      let t = '';
+      for (const r of e.results) t += r[0].transcript;
+      setInput(t);
+    };
+    rec.onend = () => setListening(false);
+    rec.onerror = () => setListening(false);
+    setListening(true);
+    rec.start();
   };
 
   const connectGh = () => {
@@ -603,6 +625,13 @@ export default function Home() {
               onKeyDown={(e) => e.key === 'Enter' && send()}
               className="flex-1 bg-transparent py-2 text-sm focus:outline-none placeholder:text-white/30"
             />
+            <button
+              onClick={toggleVoice}
+              className={`p-2.5 rounded-xl border transition-all ${listening ? 'bg-red-500/20 border-red-500/50 animate-pulse' : 'bg-white/5 border-white/10 hover:border-orange-500/40'}`}
+              title="Bol kar poochein"
+            >
+              <Mic className={`w-4 h-4 ${listening ? 'text-red-400' : 'text-white/60'}`} />
+            </button>
             <button
               onClick={() => fileRef.current?.click()}
               className={`p-2.5 rounded-xl border transition-all ${image ? 'bg-orange-500/20 border-orange-500/40' : 'bg-white/5 border-white/10 hover:border-orange-500/40'}`}
