@@ -50,6 +50,8 @@ export async function POST(req: NextRequest) {
     const urlFor = (p: string) =>
       p === 'or'
         ? 'https://openrouter.ai/api/v1/chat/completions'
+        : p === 'hf'
+        ? 'https://router.huggingface.co/v1/chat/completions'
         : 'https://api.groq.com/openai/v1/chat/completions';
     const headersFor = (p: string) => {
       const h: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -57,6 +59,8 @@ export async function POST(req: NextRequest) {
         h.Authorization = `Bearer ${process.env.OPENROUTER_API_KEY}`;
         h['HTTP-Referer'] = 'https://omnix-pi.vercel.app';
         h['X-Title'] = 'OmniX';
+      } else if (p === 'hf') {
+        h.Authorization = `Bearer ${process.env.HF_TOKEN}`;
       } else {
         h.Authorization = `Bearer ${process.env.GROQ_API_KEY}`;
       }
