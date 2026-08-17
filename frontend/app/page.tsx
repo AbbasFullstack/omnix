@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { Zap, Send, Cpu, Image as ImageIcon, X, GitBranch, LogOut, Mic } from 'lucide-react';
+import { Zap, Send, Cpu, Image as ImageIcon, X, GitBranch, LogOut, Mic, History, Plus } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface Msg {
@@ -32,6 +32,9 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [streaming, setStreaming] = useState(false);
   const [listening, setListening] = useState(false);
+  const [chatId, setChatId] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyList, setHistoryList] = useState<any[]>([]);
   const [image, setImage] = useState<string | null>(null);
   const [showRepo, setShowRepo] = useState(false);
   const [repoUrl, setRepoUrl] = useState('');
@@ -194,6 +197,50 @@ export default function Home() {
     rec.start();
   };
 
+  const saveChat = async (finalMsgs: Msg[], q: string) => {
+    try {
+      const clean = finalMsgs.map((m) => ({ role: m.role, text: m.text, model: m.model }));
+      if (chatId) {
+        await supabase.from('chats').update({ messages: clean }).eq('id', chatId);
+      } else {
+        const { data } = await supabase
+          .from('chats')
+          .insert({ title: q.slice(0, 40), messages: clean })
+          .select()
+          .single();
+        if (data) setChatId(data.id);
+      }
+    } catch {}
+  };
+
+  const loadHistory = async () => {
+    if (!historyOpen) {
+      const { data } = await supabase
+        .from('chats')
+        .select('id,title,created_at')
+        .order('created_at', { ascending: false })
+        .limit(20);
+      setHistoryList(data || []);
+    }
+    setHistoryOpen(!historyOpen);
+  };
+
+  const openChat = (h: any) => {
+    supabase.from('chats').select('messages').eq('id', h.id).single().then(({ data }: any) => {
+      if (data) {
+        setMessages(data.messages || []);
+        setChatId(h.id);
+        setHistoryOpen(false);
+      }
+    });
+  };
+
+  const newChat = () => {
+    setMessages([{ role: 'ai', text: 'Assalam-o-Alaikum Abbas! Main OmniX hoon ⚡ - model chunein, photo attach karein, aur shuru karein!' }]);
+    setChatId(null);
+    setHistoryOpen(false);
+  };
+
   const connectGh = () => {
     window.location.href = '/api/github/auth';
   };
@@ -291,6 +338,7 @@ export default function Home() {
     const question = q || 'Is photo ko analyze karein';
     setMessages(m => [...m, { role: 'user', text: question, image: image || undefined }]);
     setLoading(true);
+    let finalAi = '';
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
@@ -305,6 +353,7 @@ export default function Home() {
       const ct = res.headers.get('content-type') || '';
       if (ct.includes('application/json')) {
         const json = await res.json();
+        finalAi = json.reply;
         setMessages(m => [...m, { role: 'ai', text: json.reply, model: json.used ? String(json.used).split('/').pop() : activeModel.name }]);
       } else {
         setStreaming(true);
@@ -332,12 +381,14 @@ export default function Home() {
               }
               if (j.delta) {
                 aiText += j.delta;
+                finalAi = aiText;
                 setMessages(m => { const c = [...m]; c[c.length - 1] = { ...c[c.length - 1], text: aiText }; return c; });
               }
             } catch {}
           }
         }
       }
+      await saveChat([...messages, { role: 'user', text: question }, { role: 'ai', text: finalAi }], question);
       setImage(null);
     } catch {
       setMessages(m => [...m, { role: 'ai', text: '⚠️ Network error - dobara try karein.' }]);
@@ -432,6 +483,12 @@ export default function Home() {
               <GitBranch className="w-3 h-3" /> {ghUser ? ghUser.login : 'Connect'}
             </button>
             <button
+              onClick={loadHistory}
+              className={`px-2.5 py-1.5 rounded-lg border text-[10px] font-bold flex items-center gap-1.5 transition ${historyOpen ? 'bg-orange-500/10 border-orange-500/40 text-orange-300' : 'bg-white/[0.04] border-white/[0.08] text-white/50'}`}
+            >
+              <History className="w-3 h-3" />
+            </button>
+            <button
               onClick={signOut}
               className="px-2.5 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-white/50 hover:text-red-400 transition"
               title="Logout"
@@ -513,6 +570,29 @@ export default function Home() {
 
       <div className="relative z-10 border-t border-white/[0.06] bg-[#0a0a0a]/80 backdrop-blur-xl">
         <div className="max-w-2xl mx-auto px-4 py-4">
+          {historyOpen && (
+            <div className="mb-2 bg-white/[0.04] border border-white/[0.08] rounded-2xl p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-bold text-orange-300">💾 Chat History</p>
+                <button onClick={newChat} className="text-[10px] px-2 py-1 rounded bg-white/5 border border-white/10 flex items-center gap-1">
+                  <Plus className="w-3 h-3" /> New Chat
+                </button>
+              </div>
+              <div className="max-h-40 overflow-y-auto space-y-1">
+                {historyList.map((h: any) => (
+                  <button
+                    key={h.id}
+                    onClick={() => openChat(h)}
+                    className="w-full text-left px-3 py-2 rounded-lg bg-white/5 border border-white/5 text-xs hover:border-orange-500/40"
+                  >
+                    <p className="font-bold truncate">{h.title || 'Chat'}</p>
+                    <p className="text-[9px] text-white/30">{new Date(h.created_at).toLocaleString()}</p>
+                  </button>
+                ))}
+                {historyList.length === 0 && <p className="text-[10px] text-white/30 text-center py-2">Koi purani chat nahi</p>}
+              </div>
+            </div>
+          )}
           {ghPanel && (
             <div className="mb-2 bg-white/[0.04] border border-white/[0.08] rounded-2xl p-3 space-y-2">
               {!ghUser ? (
