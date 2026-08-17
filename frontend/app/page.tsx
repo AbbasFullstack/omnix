@@ -391,6 +391,13 @@ export default function Home() {
     setMessages(m => [...m, { role: 'user', text: question, image: image || undefined }]);
     setLoading(true);
     let finalAi = '';
+    if (speakOn) {
+      try {
+        const warm = new SpeechSynthesisUtterance(' ');
+        warm.volume = 0;
+        speechSynthesis.speak(warm);
+      } catch {}
+    }
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
@@ -601,6 +608,14 @@ export default function Home() {
                     {m.text}
                     {streaming && i === messages.length - 1 && (
                       <span className="inline-block w-2 h-4 bg-orange-400 ml-1 align-middle rounded-sm animate-pulse" />
+                    )}
+                    {!streaming && m.text && (
+                      <button
+                        onClick={() => speak(m.text)}
+                        className="mt-2 flex items-center gap-1 text-[9px] text-white/40 hover:text-orange-300 transition"
+                      >
+                        <Volume2 className="w-3 h-3" /> Suno
+                      </button>
                     )}
                   </div>
                 </div>
