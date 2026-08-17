@@ -276,10 +276,44 @@ export default function Home() {
           messages: [...messages, { role: 'user', text: question }],
           modelId: activeModel.id,
           image,
+          stream: true,
         }),
       });
-      const json = await res.json();
-      setMessages(m => [...m, { role: 'ai', text: json.reply, model: json.used ? String(json.used).split('/').pop() : activeModel.name }]);
+      const ct = res.headers.get('content-type') || '';
+      if (ct.includes('application/json')) {
+        const json = await res.json();
+        setMessages(m => [...m, { role: 'ai', text: json.reply, model: json.used ? String(json.used).split('/').pop() : activeModel.name }]);
+      } else {
+        setMessages(m => [...m, { role: 'ai', text: '', model: activeModel.name }]);
+        const reader = res.body!.getReader();
+        const dec = new TextDecoder();
+        let buf = '';
+        let aiText = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += dec.decode(value, { stream: true });
+          const lines = buf.split('\n');
+          buf = lines.pop() || '';
+          for (const line of lines) {
+            const s2 = line.trim();
+            if (!s2.startsWith('data: ')) continue;
+            const d = s2.slice(6);
+            if (d === '[DONE]') continue;
+            try {
+              const j = JSON.parse(d);
+              if (j.used) {
+                const name = String(j.used).split('/').pop();
+                setMessages(m => { const c = [...m]; c[c.length - 1] = { ...c[c.length - 1], model: name }; return c; });
+              }
+              if (j.delta) {
+                aiText += j.delta;
+                setMessages(m => { const c = [...m]; c[c.length - 1] = { ...c[c.length - 1], text: aiText }; return c; });
+              }
+            } catch {}
+          }
+        }
+      }
       setImage(null);
     } catch {
       setMessages(m => [...m, { role: 'ai', text: '⚠️ Network error - dobara try karein.' }]);
