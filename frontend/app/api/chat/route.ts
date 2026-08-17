@@ -45,8 +45,9 @@ export async function POST(req: NextRequest) {
         for (const v of visionFree) tries.push({ provider: 'or', model: v.id });
       } catch {}
     }
-    tries.push({ provider: 'groq', model: 'llama-3.1-8b-instant' });
-    tries.push({ provider: 'groq', model: 'llama-3.3-70b-versatile' });
+    const { groqModels } = await import('@/lib/groq');
+    const live = await groqModels();
+    for (const g of live.slice(0, 2)) tries.push({ provider: 'groq', model: g });
 
     let lastError = '';
     for (const t of tries) {

@@ -1,12 +1,22 @@
 import { NextResponse } from 'next/server';
+import { groqModels } from '@/lib/groq';
 
 export async function GET() {
-  const models: { id: string; name: string; tag: string; vision: boolean }[] = [
-    { id: 'groq:llama-3.3-70b-versatile', name: 'Llama 3.3 70B', tag: 'Groq · Fast', vision: false },
-    { id: 'groq:llama-3.1-8b-instant', name: 'Llama 3.1 8B', tag: 'Groq · Instant', vision: false },
-    { id: 'groq:openai/gpt-oss-20b', name: 'GPT-OSS 20B', tag: 'OpenAI · Reasoning', vision: false },
-    { id: 'groq:llama-3.2-90b-vision-preview', name: 'Vision 90B 📸', tag: 'Groq · Photos', vision: true },
-  ];
+  const models: { id: string; name: string; tag: string; vision: boolean }[] = [];
+
+  const ids = await groqModels();
+  const pick = (ks: string[]) => ids.find(i => ks.some(k => i.toLowerCase().includes(k)));
+
+  const pro = pick(['llama-3.3', 'llama-4', '70b']);
+  const reason = pick(['gpt-oss-120b', 'gpt-oss']);
+  const vision = pick(['vision', 'scout']);
+  const instant = pick(['8b', 'instant', '20b']);
+
+  if (pro) models.push({ id: 'groq:' + pro, name: pro.split('/').pop()!, tag: 'Groq · Pro', vision: false });
+  if (reason) models.push({ id: 'groq:' + reason, name: reason.split('/').pop()!, tag: 'Groq · Reasoning', vision: false });
+  if (vision) models.push({ id: 'groq:' + vision, name: 'Vision 📸', tag: 'Groq · Photos', vision: true });
+  if (instant) models.push({ id: 'groq:' + instant, name: instant.split('/').pop()!, tag: 'Groq · Instant', vision: false });
+
   try {
     const r = await fetch('https://openrouter.ai/api/v1/models');
     const j = await r.json();
@@ -23,9 +33,10 @@ export async function GET() {
       const base = (m.id.split('/')[1] || m.id).replace(':free', '');
       if (seen.has(base)) continue;
       seen.add(base);
-      const vision = String(m.architecture?.modality || '').includes('image');
-      models.push({ id: 'or:' + m.id, name: base, tag: 'OpenRouter · Free', vision });
+      const vis = String(m.architecture?.modality || '').includes('image');
+      models.push({ id: 'or:' + m.id, name: base, tag: 'OpenRouter · Free', vision: vis });
     }
   } catch {}
+
   return NextResponse.json({ models });
 }
