@@ -205,7 +205,7 @@ export default function Home() {
       } else {
         const { data } = await supabase
           .from('chats')
-          .insert({ title: q.slice(0, 40), messages: clean })
+          .insert({ user_id: user.id, title: q.slice(0, 40), messages: clean })
           .select()
           .single();
         if (data) setChatId(data.id);
