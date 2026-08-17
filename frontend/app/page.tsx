@@ -208,15 +208,13 @@ export default function Home() {
   const speak = (text: string) => {
     try {
       const clean = text.replace(/[*#`_]/g, '').slice(0, 500);
-      const u = new SpeechSynthesisUtterance(clean);
-      const voices = speechSynthesis.getVoices();
-      const v =
-        voices.find(x => x.lang.startsWith('ur')) ||
-        voices.find(x => x.lang.startsWith('hi')) ||
-        voices.find(x => x.lang.startsWith('en'));
-      if (v) u.voice = v;
       speechSynthesis.cancel();
-      speechSynthesis.speak(u);
+      const u = new SpeechSynthesisUtterance(clean);
+      (window as any).__omnix_u = u;
+      u.lang = 'hi-IN';
+      u.rate = 1;
+      u.pitch = 1;
+      setTimeout(() => speechSynthesis.speak(u), 50);
     } catch {}
   };
 
