@@ -30,6 +30,7 @@ export default function Home() {
   const [modelId, setModelId] = useState(DEFAULT_MODELS[0].id);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [streaming, setStreaming] = useState(false);
   const [image, setImage] = useState<string | null>(null);
   const [showRepo, setShowRepo] = useState(false);
   const [repoUrl, setRepoUrl] = useState('');
@@ -284,6 +285,7 @@ export default function Home() {
         const json = await res.json();
         setMessages(m => [...m, { role: 'ai', text: json.reply, model: json.used ? String(json.used).split('/').pop() : activeModel.name }]);
       } else {
+        setStreaming(true);
         setMessages(m => [...m, { role: 'ai', text: '', model: activeModel.name }]);
         const reader = res.body!.getReader();
         const dec = new TextDecoder();
@@ -318,6 +320,7 @@ export default function Home() {
     } catch {
       setMessages(m => [...m, { role: 'ai', text: '⚠️ Network error - dobara try karein.' }]);
     }
+    setStreaming(false);
     setLoading(false);
   };
 
@@ -442,15 +445,18 @@ export default function Home() {
           {messages.map((m, i) =>
             m.role === 'ai' ? (
               <div key={i} className="flex gap-2.5">
-                <div className="w-7 h-7 rounded-md bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <div className={`w-7 h-7 rounded-md bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center flex-shrink-0 mt-0.5 ${streaming && i === messages.length - 1 ? 'animate-pulse shadow-lg shadow-orange-500/50' : ''}`}>
                   <Zap className="w-3.5 h-3.5 text-white" />
                 </div>
                 <div className="max-w-[85%]">
                   {m.model && (
                     <p className="text-[9px] text-orange-400/70 font-bold mb-1 uppercase tracking-wider">{m.model}</p>
                   )}
-                  <div className="px-4 py-3 rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/[0.07] text-sm leading-relaxed whitespace-pre-wrap">
+                  <div className={`px-4 py-3 rounded-2xl rounded-tl-md bg-white/[0.04] border text-sm leading-relaxed whitespace-pre-wrap ${streaming && i === messages.length - 1 ? 'border-orange-500/40 shadow-[0_0_24px_-8px_rgba(249,115,22,0.45)]' : 'border-white/[0.07]'}`}>
                     {m.text}
+                    {streaming && i === messages.length - 1 && (
+                      <span className="inline-block w-2 h-4 bg-orange-400 ml-1 align-middle rounded-sm animate-pulse" />
+                    )}
                   </div>
                 </div>
               </div>
@@ -465,7 +471,7 @@ export default function Home() {
               </div>
             )
           )}
-          {loading && (
+          {loading && !streaming && (
             <div className="flex gap-2.5">
               <div className="w-7 h-7 rounded-md bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center flex-shrink-0">
                 <Zap className="w-3.5 h-3.5 text-white" />
