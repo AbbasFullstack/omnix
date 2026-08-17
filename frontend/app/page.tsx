@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { Zap, Send, Cpu, Image as ImageIcon, X, GitBranch, LogOut, Mic, History, Plus } from 'lucide-react';
+import { Zap, Send, Cpu, Image as ImageIcon, X, GitBranch, LogOut, Mic, History, Plus, Brain } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface Msg {
@@ -35,6 +35,9 @@ export default function Home() {
   const [chatId, setChatId] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyList, setHistoryList] = useState<any[]>([]);
+  const [memoryOpen, setMemoryOpen] = useState(false);
+  const [memoryList, setMemoryList] = useState<any[]>([]);
+  const [memoryInput, setMemoryInput] = useState('');
   const [image, setImage] = useState<string | null>(null);
   const [showRepo, setShowRepo] = useState(false);
   const [repoUrl, setRepoUrl] = useState('');
@@ -195,6 +198,28 @@ export default function Home() {
     rec.onerror = () => setListening(false);
     setListening(true);
     rec.start();
+  };
+
+  const loadMemory = async () => {
+    if (!memoryOpen) {
+      const { data } = await supabase.from('memory').select('id,fact').eq('user_id', user?.id).limit(20);
+      setMemoryList(data || []);
+    }
+    setMemoryOpen(!memoryOpen);
+  };
+
+  const addMemory = async () => {
+    const f = memoryInput.trim();
+    if (!f) return;
+    await supabase.from('memory').insert({ user_id: user.id, fact: f });
+    setMemoryInput('');
+    const { data } = await supabase.from('memory').select('id,fact').eq('user_id', user.id).limit(20);
+    setMemoryList(data || []);
+  };
+
+  const delMemory = async (id: string) => {
+    await supabase.from('memory').delete().eq('id', id);
+    setMemoryList(memoryList.filter((m: any) => m.id !== id));
   };
 
   const saveChat = async (finalMsgs: Msg[], q: string) => {
@@ -483,6 +508,12 @@ export default function Home() {
               <GitBranch className="w-3 h-3" /> {ghUser ? ghUser.login : 'Connect'}
             </button>
             <button
+              onClick={loadMemory}
+              className={`px-2.5 py-1.5 rounded-lg border text-[10px] font-bold flex items-center gap-1.5 transition ${memoryOpen ? 'bg-orange-500/10 border-orange-500/40 text-orange-300' : 'bg-white/[0.04] border-white/[0.08] text-white/50'}`}
+            >
+              <Brain className="w-3 h-3" />
+            </button>
+            <button
               onClick={loadHistory}
               className={`px-2.5 py-1.5 rounded-lg border text-[10px] font-bold flex items-center gap-1.5 transition ${historyOpen ? 'bg-orange-500/10 border-orange-500/40 text-orange-300' : 'bg-white/[0.04] border-white/[0.08] text-white/50'}`}
             >
@@ -570,6 +601,30 @@ export default function Home() {
 
       <div className="relative z-10 border-t border-white/[0.06] bg-[#0a0a0a]/80 backdrop-blur-xl">
         <div className="max-w-2xl mx-auto px-4 py-4">
+          {memoryOpen && (
+            <div className="mb-2 bg-white/[0.04] border border-white/[0.08] rounded-2xl p-3 space-y-2">
+              <p className="text-[10px] font-bold text-orange-300">🧠 Personal Memory - AI yeh sab yaad rakhega</p>
+              <div className="flex gap-2">
+                <input
+                  value={memoryInput}
+                  onChange={(e) => setMemoryInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && addMemory()}
+                  placeholder="jaise: mujhe Roman Urdu pasand hai"
+                  className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-[10px] focus:outline-none focus:border-orange-500/50"
+                />
+                <button onClick={addMemory} className="px-3 py-2 rounded-xl bg-gradient-to-br from-orange-500 to-red-600 text-[10px] font-bold">Add</button>
+              </div>
+              <div className="max-h-32 overflow-y-auto space-y-1">
+                {memoryList.map((m: any) => (
+                  <div key={m.id} className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-white/5 border border-white/5 text-[10px]">
+                    <span>{m.fact}</span>
+                    <button onClick={() => delMemory(m.id)} className="text-red-400 ml-2">✕</button>
+                  </div>
+                ))}
+                {memoryList.length === 0 && <p className="text-[10px] text-white/30 text-center py-2">Koi memory nahi</p>}
+              </div>
+            </div>
+          )}
           {historyOpen && (
             <div className="mb-2 bg-white/[0.04] border border-white/[0.08] rounded-2xl p-3 space-y-2">
               <div className="flex items-center justify-between">
