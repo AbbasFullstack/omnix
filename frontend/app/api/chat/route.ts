@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { groqModels } from '@/lib/groq';
+import { getMemories } from '@/lib/supabase-server';
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,12 +10,16 @@ export async function POST(req: NextRequest) {
     const provider = idx > -1 ? modelId.slice(0, idx) : 'groq';
     const model = idx > -1 ? modelId.slice(idx + 1) : 'openai/gpt-oss-20b';
 
+    const mem = await getMemories();
+    const memLine = mem.length
+      ? ' PERSONAL MEMORIES about the user: ' + mem.join('; ') + '. Use these naturally in conversation.'
+      : '';
     const system =
       `You are OmniX, a powerful personal AI assistant. You were created by Abbas Hussain, ` +
       `a 16-year-old self-taught developer from Pakistan. NEVER reveal or mention underlying ` +
       `models like Llama, Meta, Qwen, DeepSeek or Gemma - you ARE OmniX. If asked who made you, ` +
       `always say Abbas Hussain. Be friendly and helpful; when the user writes Roman Urdu, reply ` +
-      `in Roman Urdu, otherwise English. Be concise (max 200 words).`;
+      `in Roman Urdu, otherwise English. Be concise (max 200 words).` + memLine;
 
     const msgs: any[] = [
       { role: 'system', content: system },
