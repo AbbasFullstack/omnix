@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { Zap, Send, Cpu, Image as ImageIcon, X, GitBranch, LogOut, Mic, History, Plus, Brain, Volume2, VolumeX } from 'lucide-react';
+import { Zap, Send, Cpu, Image as ImageIcon, X, GitBranch, LogOut, Mic, History, Plus, Brain, Volume2, VolumeX, Palette } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface Msg {
@@ -39,6 +39,7 @@ export default function Home() {
   const [memoryList, setMemoryList] = useState<any[]>([]);
   const [memoryInput, setMemoryInput] = useState('');
   const [speakOn, setSpeakOn] = useState(false);
+  const [imageMode, setImageMode] = useState(false);
   const [speakingId, setSpeakingId] = useState<number | null>(null);
   const [image, setImage] = useState<string | null>(null);
   const [showRepo, setShowRepo] = useState(false);
@@ -604,6 +605,9 @@ export default function Home() {
                     <p className="text-[9px] text-orange-400/70 font-bold mb-1 uppercase tracking-wider">{m.model}</p>
                   )}
                   <div className={`px-4 py-3 rounded-2xl rounded-tl-md bg-white/[0.04] border text-sm leading-relaxed whitespace-pre-wrap ${streaming && i === messages.length - 1 ? 'border-orange-500/40 shadow-[0_0_24px_-8px_rgba(249,115,22,0.45)]' : 'border-white/[0.07]'}`}>
+                    {m.image && (
+                      <img src={m.image} alt="generated" className="w-full max-h-72 object-contain rounded-xl mb-2 border border-orange-500/30" />
+                    )}
                     {m.text}
                     {streaming && i === messages.length - 1 && (
                       <span className="inline-block w-2 h-4 bg-orange-400 ml-1 align-middle rounded-sm animate-pulse" />
@@ -809,6 +813,13 @@ export default function Home() {
               onKeyDown={(e) => e.key === 'Enter' && send()}
               className="flex-1 bg-transparent py-2 text-sm focus:outline-none placeholder:text-white/30"
             />
+            <button
+              onClick={() => setImageMode(!imageMode)}
+              className={`p-2.5 rounded-xl border transition-all ${imageMode ? 'bg-orange-500/20 border-orange-500/50' : 'bg-white/5 border-white/10 hover:border-orange-500/40'}`}
+              title="AI Image Generation"
+            >
+              <Palette className={`w-4 h-4 ${imageMode ? 'text-orange-400' : 'text-white/60'}`} />
+            </button>
             <button
               onClick={toggleVoice}
               className={`p-2.5 rounded-xl border transition-all ${listening ? 'bg-red-500/20 border-red-500/50 animate-pulse' : 'bg-white/5 border-white/10 hover:border-orange-500/40'}`}
