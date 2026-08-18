@@ -24,42 +24,38 @@ export default function CallPage() {
     const urdu = /[\u0600-\u06FF]/.test(clean);
     const g = (tl: string) =>
       'https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=' + tl + '&text=' + encodeURIComponent(clean);
-    const chain: { url: string; rate: number }[] =
-      voice === 'male'
-        ? [
-            { url: 'https://api.streamelements.com/kappa/v2/speech?voice=Brian&text=' + encodeURIComponent(clean), rate: 1 },
-            { url: 'https://api.streamelements.com/kappa/v2/speech?voice=Russell&text=' + encodeURIComponent(clean), rate: 1 },
-            { url: g('en'), rate: 0.78 },
-          ]
-        : urdu
-        ? [
-            { url: g('ur'), rate: 1 },
-            { url: g('hi'), rate: 1 },
-          ]
-        : [
-            { url: g('en'), rate: 1 },
-            { url: 'https://api.streamelements.com/kappa/v2/speech?voice=Amy&text=' + encodeURIComponent(clean), rate: 1 },
-          ];
+
+    if (voice === 'male') {
+      const u = new SpeechSynthesisUtterance(clean);
+      (window as any).__omnix_u = u;
+      const voices = speechSynthesis.getVoices();
+      const male =
+        voices.find(v => /male|david|daniel|alex|mark|google us english/i.test(v.name) && !/female/i.test(v.name)) ||
+        voices.find(v => /en-us|en-gb/i.test(v.lang));
+      if (male) u.voice = male;
+      u.lang = male ? male.lang : 'en-US';
+      u.rate = 0.95;
+      u.pitch = 0.85;
+      u.onend = onEnd;
+      u.onerror = onEnd;
+      speechSynthesis.cancel();
+      speechSynthesis.speak(u);
+      return;
+    }
+
+    const chain = urdu ? [g('ur'), g('hi'), g('en')] : [g('en')];
     let i = 0;
     const tryNext = () => {
       if (i >= chain.length) {
-        try {
-          const u = new SpeechSynthesisUtterance(clean);
-          (window as any).__omnix_u = u;
-          u.onend = onEnd;
-          u.onerror = onEnd;
-          speechSynthesis.speak(u);
-        } catch {
-          onEnd();
-        }
+        const u = new SpeechSynthesisUtterance(clean);
+        (window as any).__omnix_u = u;
+        u.onend = onEnd;
+        u.onerror = onEnd;
+        speechSynthesis.speak(u);
         return;
       }
-      const a = new Audio(chain[i].url);
-      const rate = chain[i].rate;
+      const a = new Audio(chain[i]);
       i++;
-      a.onplay = () => {
-        a.playbackRate = rate;
-      };
       a.onended = onEnd;
       a.onerror = tryNext;
       a.play().catch(tryNext);
