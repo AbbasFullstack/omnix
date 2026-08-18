@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
         body: JSON.stringify({ model: t.model, messages: msgs, stream: true }),
       });
       if (!res.ok || !res.body) {
-        lastErr = t.model + ' → HTTP ' + res.status;
+        lastErr += t.provider + ':' + t.model + '→' + res.status + ' | ';
         continue;
       }
       const upstream = res.body;
