@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { Zap, Send, Cpu, Image as ImageIcon, X, GitBranch, LogOut, Mic, History, Plus, Brain, Volume2, VolumeX, Palette } from 'lucide-react';
+import { Zap, Send, Cpu, Image as ImageIcon, X, GitBranch, LogOut, Mic, History, Plus, Brain, Volume2, VolumeX, Palette, Phone, PhoneOff } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface Msg {
@@ -40,6 +40,14 @@ export default function Home() {
   const [memoryInput, setMemoryInput] = useState('');
   const [speakOn, setSpeakOn] = useState(false);
   const [imageMode, setImageMode] = useState(false);
+  const [inCall, setInCall] = useState(false);
+  const [callTranscript, setCallTranscript] = useState<{ who: string; text: string }[]>([]);
+  const callActive = useRef(false);
+  const callBusy = useRef(false);
+  const messagesRef = useRef(messages);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
   const [speakingId, setSpeakingId] = useState<number | null>(null);
   const [image, setImage] = useState<string | null>(null);
   const [showRepo, setShowRepo] = useState(false);
@@ -180,6 +188,69 @@ export default function Home() {
       setMessages(ms => [...ms, { role: 'ai', text: '⚠️ Repo fetch nahi hui - URL check karein (public repo honi chahiye)' }]);
     }
     setRepoLoading(false);
+  };
+
+  const speakText = (text: string, onEnd: () => void) => {
+    const clean = text.replace(/[*#`_]/g, '').slice(0, 400);
+    const url = 'https://api.streamelements.com/kappa/v2/speech?voice=Brian&text=' + encodeURIComponent(clean);
+    const a = new Audio(url);
+    a.onended = onEnd;
+    a.onerror = onEnd;
+    a.play().catch(onEnd);
+  };
+
+  const startCallListen = () => {
+    const SR: any = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) return;
+    const rec = new SR();
+    rec.lang = 'ur-PK';
+    rec.interimResults = false;
+    rec.onresult = (e: any) => {
+      const t = e.results[0][0].transcript;
+      setCallTranscript(m => [...m, { who: 'user', text: t }]);
+      (async () => {
+        callBusy.current = true;
+        try {
+          const res = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              messages: [...messagesRef.current, { role: 'user', text: t }],
+              modelId: activeModel.id,
+              stream: false,
+            }),
+          });
+          const j = await res.json();
+          setCallTranscript(m => [...m, { who: 'ai', text: j.reply }]);
+          setMessages(m => [...m, { role: 'user', text: t }, { role: 'ai', text: j.reply, model: 'Call' }]);
+          speakText(j.reply, () => {
+            callBusy.current = false;
+            if (callActive.current) setTimeout(startCallListen, 300);
+          });
+        } catch {
+          callBusy.current = false;
+          if (callActive.current) setTimeout(startCallListen, 300);
+        }
+      })();
+    };
+    rec.onend = () => {
+      if (callActive.current && !callBusy.current) setTimeout(startCallListen, 300);
+    };
+    try {
+      rec.start();
+    } catch {}
+  };
+
+  const startCall = () => {
+    callActive.current = true;
+    setInCall(true);
+    setCallTranscript([]);
+    speakText('Ji boliye, main sun raha hoon', () => startCallListen());
+  };
+
+  const endCall = () => {
+    callActive.current = false;
+    setInCall(false);
   };
 
   const toggleVoice = () => {
@@ -569,6 +640,13 @@ export default function Home() {
               <GitBranch className="w-3 h-3" /> {ghUser ? ghUser.login : 'Connect'}
             </button>
             <button
+              onClick={startCall}
+              className="px-2.5 py-1.5 rounded-lg border bg-emerald-500/10 border-emerald-500/40 text-emerald-400 text-[10px] font-bold flex items-center gap-1.5"
+              title="Voice Call"
+            >
+              <Phone className="w-3 h-3" />
+            </button>
+            <button
               onClick={toggleSpeak}
               className={`px-2.5 py-1.5 rounded-lg border text-[10px] font-bold flex items-center gap-1.5 transition ${speakOn ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400' : 'bg-white/[0.04] border-white/[0.08] text-white/50'}`}
               title="AI awaaz mein bole"
@@ -685,6 +763,25 @@ export default function Home() {
 
       <div className="relative z-10 border-t border-white/[0.06] bg-[#0a0a0a]/80 backdrop-blur-xl">
         <div className="max-w-2xl mx-auto px-4 py-4">
+          {inCall && (
+            <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur flex flex-col items-center justify-center p-6">
+              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center animate-pulse shadow-2xl shadow-orange-500/40 mb-6">
+                <Phone className="w-10 h-10 text-white" />
+              </div>
+              <p className="text-sm font-bold mb-1">OmniX Call</p>
+              <p className="text-[10px] text-white/40 mb-6">Boliye - main sun raha hoon...</p>
+              <div className="w-full max-h-48 overflow-y-auto space-y-2 mb-8">
+                {callTranscript.map((t, i) => (
+                  <div key={i} className={`px-3 py-2 rounded-xl text-xs ${t.who === 'user' ? 'bg-orange-500/20 ml-8' : 'bg-white/10 mr-8'}`}>
+                    {t.text}
+                  </div>
+                ))}
+              </div>
+              <button onClick={endCall} className="px-6 py-3 rounded-full bg-red-600 text-sm font-bold flex items-center gap-2">
+                <PhoneOff className="w-4 h-4" /> Call End
+              </button>
+            </div>
+          )}
           {memoryOpen && (
             <div className="mb-2 bg-white/[0.04] border border-white/[0.08] rounded-2xl p-3 space-y-2">
               <p className="text-[10px] font-bold text-orange-300">🧠 Personal Memory - AI yeh sab yaad rakhega</p>
