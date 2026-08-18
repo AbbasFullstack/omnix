@@ -49,6 +49,18 @@ export async function POST(req: NextRequest) {
         for (const v of visionFree) tries.push({ provider: 'or', model: v.id });
       } catch {}
     }
+    const HF_CHAIN = [
+      'deepseek-ai/DeepSeek-V4-Pro',
+      'deepseek-ai/DeepSeek-V4-Flash',
+      'Qwen/Qwen3-235B-A22B',
+      'Qwen/Qwen3-8B',
+      'deepseek-ai/DeepSeek-R1-0528-Qwen3-8B',
+    ];
+    if (provider === 'hf') {
+      for (const h of HF_CHAIN) {
+        if (h !== model) tries.push({ provider: 'hf', model: h });
+      }
+    }
     const live = await groqModels();
     for (const g of live.slice(0, 2)) tries.push({ provider: 'groq', model: g });
 
