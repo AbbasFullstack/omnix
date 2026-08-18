@@ -24,7 +24,7 @@ async function freeModels(): Promise<any[]> {
 
 export async function POST(req: NextRequest) {
   try {
-    const { messages, modelId, image, stream, call } = await req.json();
+    const { messages, modelId, image, stream, call, voice } = await req.json();
 
     const idx = (modelId || '').indexOf(':');
     const model = idx > -1 ? modelId.slice(idx + 1) : '';
@@ -34,7 +34,9 @@ export async function POST(req: NextRequest) {
       ? ' PERSONAL MEMORIES about the user: ' + mem.join('; ') + '. Use these naturally in conversation.'
       : '';
     const callLine = call
-      ? ' VOICE CALL MODE: Keep reply under 60 words. If the user writes Roman Urdu, reply in Urdu script; if English, reply in English.'
+      ? voice === 'male'
+        ? ' VOICE CALL MODE: Keep reply under 60 words. If the user writes Roman Urdu, reply in Roman Urdu; if English, reply in English.'
+        : ' VOICE CALL MODE: Keep reply under 60 words. If the user writes Roman Urdu, reply in Urdu script; if English, reply in English.'
       : '';
     const system =
       `You are OmniX, a powerful personal AI assistant. You were created by Abbas Hussain, ` +

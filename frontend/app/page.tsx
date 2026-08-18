@@ -680,13 +680,13 @@ export default function Home() {
             >
               <GitBranch className="w-3 h-3" /> {ghUser ? ghUser.login : 'Connect'}
             </button>
-            <button
-              onClick={() => setCallSheet(true)}
+            <a
+              href="/call"
               className="px-2.5 py-1.5 rounded-lg border bg-emerald-500/10 border-emerald-500/40 text-emerald-400 text-[10px] font-bold flex items-center gap-1.5"
               title="Voice Call"
             >
               <Phone className="w-3 h-3" />
-            </button>
+            </a>
             <button
               onClick={toggleSpeak}
               className={`px-2.5 py-1.5 rounded-lg border text-[10px] font-bold flex items-center gap-1.5 transition ${speakOn ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400' : 'bg-white/[0.04] border-white/[0.08] text-white/50'}`}
