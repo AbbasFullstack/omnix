@@ -52,14 +52,42 @@ export default function Home() {
     supabase.auth.getSession().then(({ data }) => {
       setUser(data.session?.user || null);
       setAuthLoading(false);
-      if (data.session?.user) loadGithub(data.session.user.id);
+      if (data.session?.user) {
+        loadGithub(data.session.user.id);
+        saveGithubData(data.session.user);
+      }
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
       setUser(session?.user || null);
-      if (session?.user) loadGithub(session.user.id);
+      if (session?.user) {
+        loadGithub(session.user.id);
+        saveGithubData(session.user);
+      }
     });
     return () => sub.subscription.unsubscribe();
   }, []);
+
+  const saveGithubData = async (user: any) => {
+    const metadata = user.user_metadata || {};
+    if (metadata.provider === 'github' && metadata.sub) {
+      const { data: existing } = await supabase
+        .from('user_github')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      if (!existing) {
+        await supabase.from('user_github').insert({
+          user_id: user.id,
+          github_id: parseInt(metadata.sub),
+          login: metadata.user_name || metadata.name,
+          avatar_url: metadata.avatar_url,
+          access_token: '',
+        });
+        loadGithub(user.id);
+      }
+    }
+  };
 
   useEffect(() => {
     fetch('/api/models').then(r => r.json()).then(j => {
