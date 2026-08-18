@@ -42,6 +42,7 @@ export default function Home() {
   const [imageMode, setImageMode] = useState(false);
   const [inCall, setInCall] = useState(false);
   const [callTranscript, setCallTranscript] = useState<{ who: string; text: string }[]>([]);
+  const [callStatus, setCallStatus] = useState('listening');
   const callActive = useRef(false);
   const callBusy = useRef(false);
   const messagesRef = useRef(messages);
@@ -191,12 +192,32 @@ export default function Home() {
   };
 
   const speakText = (text: string, onEnd: () => void) => {
-    const clean = text.replace(/[*#`_]/g, '').slice(0, 400);
-    const url = 'https://api.streamelements.com/kappa/v2/speech?voice=Brian&text=' + encodeURIComponent(clean);
-    const a = new Audio(url);
-    a.onended = onEnd;
-    a.onerror = onEnd;
-    a.play().catch(onEnd);
+    const clean = text.replace(/[*#`_]/g, '').slice(0, 300);
+    const urls = [
+      'https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=en&text=' + encodeURIComponent(clean),
+      'https://api.streamelements.com/kappa/v2/speech?voice=Brian&text=' + encodeURIComponent(clean),
+    ];
+    let i = 0;
+    const tryNext = () => {
+      if (i >= urls.length) {
+        try {
+          const u = new SpeechSynthesisUtterance(clean);
+          (window as any).__omnix_u = u;
+          u.onend = onEnd;
+          u.onerror = onEnd;
+          speechSynthesis.speak(u);
+        } catch {
+          onEnd();
+        }
+        return;
+      }
+      const a = new Audio(urls[i]);
+      i++;
+      a.onended = onEnd;
+      a.onerror = tryNext;
+      a.play().catch(tryNext);
+    };
+    tryNext();
   };
 
   const startCallListen = () => {
@@ -205,9 +226,11 @@ export default function Home() {
     const rec = new SR();
     rec.lang = 'ur-PK';
     rec.interimResults = false;
+    setCallStatus('listening');
     rec.onresult = (e: any) => {
       const t = e.results[0][0].transcript;
       setCallTranscript(m => [...m, { who: 'user', text: t }]);
+      setCallStatus('thinking');
       (async () => {
         callBusy.current = true;
         try {
@@ -223,9 +246,13 @@ export default function Home() {
           const j = await res.json();
           setCallTranscript(m => [...m, { who: 'ai', text: j.reply }]);
           setMessages(m => [...m, { role: 'user', text: t }, { role: 'ai', text: j.reply, model: 'Call' }]);
+          setCallStatus('speaking');
           speakText(j.reply, () => {
             callBusy.current = false;
-            if (callActive.current) setTimeout(startCallListen, 300);
+            if (callActive.current) {
+              setCallStatus('listening');
+              setTimeout(startCallListen, 300);
+            }
           });
         } catch {
           callBusy.current = false;
@@ -245,7 +272,11 @@ export default function Home() {
     callActive.current = true;
     setInCall(true);
     setCallTranscript([]);
-    speakText('Ji boliye, main sun raha hoon', () => startCallListen());
+    setCallStatus('speaking');
+    speakText('Ji boliye, main sun raha hoon', () => {
+      setCallStatus('listening');
+      startCallListen();
+    });
   };
 
   const endCall = () => {
@@ -769,7 +800,7 @@ export default function Home() {
                 <Phone className="w-10 h-10 text-white" />
               </div>
               <p className="text-sm font-bold mb-1">OmniX Call</p>
-              <p className="text-[10px] text-white/40 mb-6">Boliye - main sun raha hoon...</p>
+              <p className="text-[10px] text-white/40 mb-6">{callStatus === 'listening' ? '🎤 Sun raha hoon - boliye...' : callStatus === 'thinking' ? '🤔 Soch raha hoon...' : '🔊 Bol raha hoon...'}</p>
               <div className="w-full max-h-48 overflow-y-auto space-y-2 mb-8">
                 {callTranscript.map((t, i) => (
                   <div key={i} className={`px-3 py-2 rounded-xl text-xs ${t.who === 'user' ? 'bg-orange-500/20 ml-8' : 'bg-white/10 mr-8'}`}>
