@@ -388,6 +388,30 @@ export default function Home() {
   const send = async (text?: string) => {
     const q = (text || input).trim();
     if ((!q && !image) || loading) return;
+
+    if (imageMode) {
+      setMessages(m => [...m, { role: 'user', text: '🎨 ' + q }]);
+      setInput('');
+      setLoading(true);
+      try {
+        const res = await fetch('/api/image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: q }),
+        });
+        const j = await res.json();
+        if (j.image) {
+          setMessages(m => [...m, { role: 'ai', text: '🎨 ' + q, image: j.image, model: 'FLUX' }]);
+        } else {
+          setMessages(m => [...m, { role: 'ai', text: '⚠️ ' + (j.error || 'Image fail') }]);
+        }
+      } catch {
+        setMessages(m => [...m, { role: 'ai', text: '⚠️ Network error' }]);
+      }
+      setLoading(false);
+      return;
+    }
+
     setInput('');
     const question = q || 'Is photo ko analyze karein';
     setMessages(m => [...m, { role: 'user', text: question, image: image || undefined }]);
