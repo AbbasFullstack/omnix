@@ -67,6 +67,14 @@ export async function POST(req: NextRequest) {
         if (h !== model) tries.push({ provider: 'hf', model: h });
       }
     }
+    try {
+      const orr = await fetch('https://openrouter.ai/api/v1/models');
+      const orj = await orr.json();
+      const orfree = (orj.data || [])
+        .filter((m: any) => String(m.id || '').endsWith(':free'))
+        .slice(0, 3);
+      for (const m of orfree) tries.push({ provider: 'or', model: m.id });
+    } catch {}
     const live = await groqModels();
     for (const g of live.slice(0, 2)) tries.push({ provider: 'groq', model: g });
 
