@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { Zap, Send, Cpu, Image as ImageIcon, X, GitBranch, LogOut, Mic, History, Plus, Brain, Volume2, VolumeX, Palette, Phone, PhoneOff, Presentation } from 'lucide-react';
+import { Zap, Send, Cpu, Image as ImageIcon, X, GitBranch, LogOut, Mic, History, Plus, Brain, Volume2, VolumeX, Palette, Phone, PhoneOff, Presentation, Clapperboard } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface Msg {
@@ -680,6 +680,13 @@ export default function Home() {
             >
               <GitBranch className="w-3 h-3" /> {ghUser ? ghUser.login : 'Connect'}
             </button>
+            <a
+              href="/video"
+              className="px-2.5 py-1.5 rounded-lg border bg-white/[0.04] border-white/[0.08] text-white/50 text-[10px] font-bold flex items-center gap-1.5"
+              title="Video"
+            >
+              <Clapperboard className="w-3 h-3" />
+            </a>
             <a
               href="/slides"
               className="px-2.5 py-1.5 rounded-lg border bg-white/[0.04] border-white/[0.08] text-white/50 text-[10px] font-bold flex items-center gap-1.5"
