@@ -49,21 +49,15 @@ export default function Home() {
   useEffect(() => { setSpeakOn(localStorage.getItem('omnix_tts') === '1'); }, []);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setUser(data.session?.user || null);
-      setAuthLoading(false);
-      if (data.session?.user) {
-        loadGithub(data.session.user.id);
-        saveGithubData(data.session.user);
+    const handleUser = async (u: any) => {
+      setUser(u);
+      if (u) {
+        await loadGithub(u.id);
+        await saveGithubData(u);
       }
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUser(session?.user || null);
-      if (session?.user) {
-        loadGithub(session.user.id);
-        saveGithubData(session.user);
-      }
-    });
+    };
+    supabase.auth.getSession().then(({ data }) => handleUser(data.session?.user || null));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => handleUser(session?.user || null));
     return () => sub.subscription.unsubscribe();
   }, []);
 
