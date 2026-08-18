@@ -106,7 +106,7 @@ export default function Home() {
       provider: 'github',
       options: {
         scopes: 'repo',
-        redirectTo: window.location.origin,
+        redirectTo: 'https://omnix-pi.vercel.app',
       },
     });
     if (error) alert('GitHub connect error: ' + error.message);
