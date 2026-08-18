@@ -95,13 +95,17 @@ export async function POST(req: NextRequest) {
 
     // STREAMING mode (SSE)
     const enc = new TextEncoder();
+    let lastErr = '';
     for (const t of tries) {
       const res = await fetch(urlFor(t.provider), {
         method: 'POST',
         headers: headersFor(t.provider),
         body: JSON.stringify({ model: t.model, messages: msgs, stream: true }),
       });
-      if (!res.ok || !res.body) continue;
+      if (!res.ok || !res.body) {
+        lastErr = t.model + ' → HTTP ' + res.status;
+        continue;
+      }
       const upstream = res.body;
       const used = t.model;
 
@@ -145,7 +149,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    return NextResponse.json({ reply: '⚠️ Sab models fail ho gaye' });
+    return NextResponse.json({ reply: '⚠️ Sab models fail: ' + lastErr });
   } catch (e: any) {
     return NextResponse.json({ reply: 'Error: ' + e.message }, { status: 500 });
   }
