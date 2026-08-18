@@ -43,6 +43,8 @@ export default function Home() {
   const [inCall, setInCall] = useState(false);
   const [callTranscript, setCallTranscript] = useState<{ who: string; text: string }[]>([]);
   const [callStatus, setCallStatus] = useState('listening');
+  const [callVoice, setCallVoice] = useState<'male' | 'female'>('male');
+  const [callSheet, setCallSheet] = useState(false);
   const callActive = useRef(false);
   const callBusy = useRef(false);
   const messagesRef = useRef(messages);
@@ -193,10 +195,12 @@ export default function Home() {
 
   const speakText = (text: string, onEnd: () => void) => {
     const clean = text.replace(/[*#`_]/g, '').slice(0, 300);
-    const urls = [
-      'https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=en&text=' + encodeURIComponent(clean),
-      'https://api.streamelements.com/kappa/v2/speech?voice=Brian&text=' + encodeURIComponent(clean),
-    ];
+    const urdu = /[\u0600-\u06FF]/.test(clean);
+    const urls = urdu
+      ? ['https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=ur&text=' + encodeURIComponent(clean)]
+      : callVoice === 'male'
+      ? ['https://api.streamelements.com/kappa/v2/speech?voice=Brian&text=' + encodeURIComponent(clean)]
+      : ['https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=en&text=' + encodeURIComponent(clean)];
     let i = 0;
     const tryNext = () => {
       if (i >= urls.length) {
@@ -229,6 +233,9 @@ export default function Home() {
     setCallStatus('listening');
     rec.onresult = (e: any) => {
       const t = e.results[0][0].transcript;
+      try {
+        rec.stop();
+      } catch {}
       setCallTranscript(m => [...m, { who: 'user', text: t }]);
       setCallStatus('thinking');
       (async () => {
@@ -241,6 +248,7 @@ export default function Home() {
               messages: [...messagesRef.current, { role: 'user', text: t }],
               modelId: activeModel.id,
               stream: false,
+              call: true,
             }),
           });
           const j = await res.json();
@@ -269,7 +277,9 @@ export default function Home() {
     } catch {}
   };
 
-  const startCall = () => {
+  const startCall = (voice: 'male' | 'female') => {
+    setCallVoice(voice);
+    setCallSheet(false);
     callActive.current = true;
     setInCall(true);
     setCallTranscript([]);
@@ -671,7 +681,7 @@ export default function Home() {
               <GitBranch className="w-3 h-3" /> {ghUser ? ghUser.login : 'Connect'}
             </button>
             <button
-              onClick={startCall}
+              onClick={() => setCallSheet(true)}
               className="px-2.5 py-1.5 rounded-lg border bg-emerald-500/10 border-emerald-500/40 text-emerald-400 text-[10px] font-bold flex items-center gap-1.5"
               title="Voice Call"
             >
@@ -794,29 +804,52 @@ export default function Home() {
 
       <div className="relative z-10 border-t border-white/[0.06] bg-[#0a0a0a]/80 backdrop-blur-xl">
         <div className="max-w-2xl mx-auto px-4 py-4">
-          {inCall && (
-            <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur flex flex-col items-center justify-center p-6">
-              <button
-                onClick={() => {
-                  if (callStatus === 'tap') {
-                    setCallStatus('listening');
-                    startCallListen();
-                  }
-                }}
-                className="w-24 h-24 rounded-full bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center animate-pulse shadow-2xl shadow-orange-500/40 mb-6"
-              >
-                {callStatus === 'listening' ? <Mic className="w-10 h-10 text-white" /> : <Phone className="w-10 h-10 text-white" />}
-              </button>
-              <p className="text-sm font-bold mb-1">OmniX Call</p>
-              <p className="text-[10px] text-white/40 mb-6">{callStatus === 'listening' ? '🎤 Sun raha hoon - boliye...' : callStatus === 'thinking' ? '🤔 Soch raha hoon...' : callStatus === 'tap' ? '👆 Circle tap karein aur boliye' : '🔊 Bol raha hoon...'}</p>
-              <div className="w-full max-h-48 overflow-y-auto space-y-2 mb-8">
-                {callTranscript.map((t, i) => (
-                  <div key={i} className={`px-3 py-2 rounded-xl text-xs ${t.who === 'user' ? 'bg-orange-500/20 ml-8' : 'bg-white/10 mr-8'}`}>
-                    {t.text}
-                  </div>
-                ))}
+          {callSheet && (
+            <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur flex items-center justify-center p-6">
+              <div className="w-full max-w-sm bg-[#151515] border border-white/10 rounded-3xl p-6 text-center">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center">
+                  <Phone className="w-7 h-7 text-white" />
+                </div>
+                <p className="text-base font-bold mb-1">OmniX Voice Call</p>
+                <p className="text-[10px] text-white/40 mb-6">Awaaz chunein - AI usi style mein baat karega</p>
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <button onClick={() => startCall('male')} className="py-4 rounded-2xl bg-blue-500/10 border border-blue-500/40 text-blue-300 font-bold text-sm">👨 Male</button>
+                  <button onClick={() => startCall('female')} className="py-4 rounded-2xl bg-pink-500/10 border border-pink-500/40 text-pink-300 font-bold text-sm">👩 Female</button>
+                </div>
+                <button onClick={() => setCallSheet(false)} className="w-full py-2 text-[10px] text-white/40">Cancel</button>
               </div>
-              <button onClick={endCall} className="px-6 py-3 rounded-full bg-red-600 text-sm font-bold flex items-center gap-2">
+            </div>
+          )}
+          {inCall && (
+            <div className="fixed inset-0 z-50 bg-gradient-to-b from-[#1a0d05] via-black to-black flex flex-col items-center p-6">
+              <div className="flex-1 flex flex-col items-center justify-center w-full">
+                <div className="relative mb-6">
+                  {callStatus === 'listening' && <div className="absolute inset-0 rounded-full bg-orange-500/40 animate-ping" />}
+                  <button
+                    onClick={() => {
+                      if (callStatus === 'tap') {
+                        setCallStatus('listening');
+                        startCallListen();
+                      }
+                    }}
+                    className="relative w-28 h-28 rounded-full bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center shadow-2xl shadow-orange-500/50"
+                  >
+                    {callStatus === 'listening' ? <Mic className="w-11 h-11 text-white" /> : <Phone className="w-11 h-11 text-white" />}
+                  </button>
+                </div>
+                <p className="text-sm font-bold mb-1">OmniX Call</p>
+                <p className="text-[10px] text-white/40 mb-6">
+                  {callStatus === 'listening' ? '🎤 Sun raha hoon - boliye...' : callStatus === 'thinking' ? '🤔 Soch raha hoon...' : callStatus === 'tap' ? '👆 Circle tap karein aur boliye' : '🔊 Bol raha hoon...'}
+                </p>
+                <div className="w-full max-h-56 overflow-y-auto space-y-2">
+                  {callTranscript.map((t, i) => (
+                    <div key={i} className={`px-3 py-2 rounded-xl text-xs max-w-[85%] ${t.who === 'user' ? 'bg-orange-500/20 ml-auto border border-orange-500/20' : 'bg-white/[0.06] mr-auto border border-white/5'}`}>
+                      {t.text}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <button onClick={endCall} className="w-full max-w-xs py-3.5 rounded-full bg-red-600 text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-red-600/30">
                 <PhoneOff className="w-4 h-4" /> Call End
               </button>
             </div>
