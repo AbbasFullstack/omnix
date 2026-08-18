@@ -249,19 +249,20 @@ export default function Home() {
           setCallStatus('speaking');
           speakText(j.reply, () => {
             callBusy.current = false;
-            if (callActive.current) {
-              setCallStatus('listening');
-              setTimeout(startCallListen, 300);
-            }
+            if (callActive.current) setCallStatus('tap');
           });
         } catch {
           callBusy.current = false;
-          if (callActive.current) setTimeout(startCallListen, 300);
+          if (callActive.current) setCallStatus('tap');
         }
       })();
     };
     rec.onend = () => {
-      if (callActive.current && !callBusy.current) setTimeout(startCallListen, 300);
+      if (callActive.current && !callBusy.current) setCallStatus('tap');
+    };
+    rec.onerror = (e: any) => {
+      setCallTranscript(m => [...m, { who: 'ai', text: '⚠️ Mic: ' + (e.error || 'error') }]);
+      setCallStatus('tap');
     };
     try {
       rec.start();
@@ -274,8 +275,7 @@ export default function Home() {
     setCallTranscript([]);
     setCallStatus('speaking');
     speakText('Ji boliye, main sun raha hoon', () => {
-      setCallStatus('listening');
-      startCallListen();
+      setCallStatus('tap');
     });
   };
 
@@ -796,11 +796,19 @@ export default function Home() {
         <div className="max-w-2xl mx-auto px-4 py-4">
           {inCall && (
             <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur flex flex-col items-center justify-center p-6">
-              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center animate-pulse shadow-2xl shadow-orange-500/40 mb-6">
-                <Phone className="w-10 h-10 text-white" />
-              </div>
+              <button
+                onClick={() => {
+                  if (callStatus === 'tap') {
+                    setCallStatus('listening');
+                    startCallListen();
+                  }
+                }}
+                className="w-24 h-24 rounded-full bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center animate-pulse shadow-2xl shadow-orange-500/40 mb-6"
+              >
+                {callStatus === 'listening' ? <Mic className="w-10 h-10 text-white" /> : <Phone className="w-10 h-10 text-white" />}
+              </button>
               <p className="text-sm font-bold mb-1">OmniX Call</p>
-              <p className="text-[10px] text-white/40 mb-6">{callStatus === 'listening' ? '🎤 Sun raha hoon - boliye...' : callStatus === 'thinking' ? '🤔 Soch raha hoon...' : '🔊 Bol raha hoon...'}</p>
+              <p className="text-[10px] text-white/40 mb-6">{callStatus === 'listening' ? '🎤 Sun raha hoon - boliye...' : callStatus === 'thinking' ? '🤔 Soch raha hoon...' : callStatus === 'tap' ? '👆 Circle tap karein aur boliye' : '🔊 Bol raha hoon...'}</p>
               <div className="w-full max-h-48 overflow-y-auto space-y-2 mb-8">
                 {callTranscript.map((t, i) => (
                   <div key={i} className={`px-3 py-2 rounded-xl text-xs ${t.who === 'user' ? 'bg-orange-500/20 ml-8' : 'bg-white/10 mr-8'}`}>
