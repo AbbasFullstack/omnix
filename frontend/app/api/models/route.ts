@@ -29,6 +29,15 @@ export async function GET() {
         vision: String(sorted[0].architecture?.modality || '').includes('image'),
       });
     }
+    const r1 =
+      free.find((m: any) => String(m.id).includes('deepseek-r1')) ||
+      free.find((m: any) => String(m.id).includes('reasoner'));
+    models.push({
+      id: 'or:' + (r1 ? r1.id : 'deepseek/deepseek-r1:free'),
+      name: 'DeepSeek R1',
+      tag: 'Reasoning · Pro',
+      vision: false,
+    });
   } catch {}
 
   // 3) HuggingFace
