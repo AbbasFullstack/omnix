@@ -610,6 +610,11 @@ export default function Home() {
                     {m.image && (
                       <img src={m.image} alt="generated" className="w-full max-h-72 object-contain rounded-xl mb-2 border border-orange-500/30" />
                     )}
+                    {m.image && m.role === 'ai' && (
+                      <a href={m.image} download="omnix-image.png" className="mb-2 inline-flex items-center gap-1 text-[9px] text-orange-300 border border-orange-500/30 rounded-lg px-2 py-1">
+                        ⬇️ Download
+                      </a>
+                    )}
                     {m.text}
                     {streaming && i === messages.length - 1 && (
                       <span className="inline-block w-2 h-4 bg-orange-400 ml-1 align-middle rounded-sm animate-pulse" />
