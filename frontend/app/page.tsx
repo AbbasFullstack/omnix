@@ -220,6 +220,8 @@ export default function Home() {
     } catch {}
   };
 
+  const cleanThink = (t: string) => t.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+
   const toggleSpeak = () => {
     const next = !speakOn;
     setSpeakOn(next);
@@ -412,8 +414,8 @@ export default function Home() {
       const ct = res.headers.get('content-type') || '';
       if (ct.includes('application/json')) {
         const json = await res.json();
-        finalAi = json.reply;
-        setMessages(m => [...m, { role: 'ai', text: json.reply, model: json.used ? String(json.used).split('/').pop() : activeModel.name }]);
+        finalAi = cleanThink(json.reply);
+        setMessages(m => [...m, { role: 'ai', text: finalAi, model: json.used ? String(json.used).split('/').pop() : activeModel.name }]);
       } else {
         setStreaming(true);
         setMessages(m => [...m, { role: 'ai', text: '', model: activeModel.name }]);
@@ -440,8 +442,8 @@ export default function Home() {
               }
               if (j.delta) {
                 aiText += j.delta;
-                finalAi = aiText;
-                setMessages(m => { const c = [...m]; c[c.length - 1] = { ...c[c.length - 1], text: aiText }; return c; });
+                finalAi = cleanThink(aiText);
+                setMessages(m => { const c = [...m]; c[c.length - 1] = { ...c[c.length - 1], text: finalAi }; return c; });
               }
             } catch {}
           }
