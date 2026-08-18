@@ -56,6 +56,12 @@ export async function POST(req: NextRequest) {
       'Qwen/Qwen3-8B',
       'deepseek-ai/DeepSeek-R1-0528-Qwen3-8B',
     ];
+    const GEM_CHAIN = ['gemini-3.6-flash', 'gemini-3.5-pro', 'gemini-3-pro', 'gemini-2.5-flash'];
+    if (provider === 'gemini') {
+      for (const g of GEM_CHAIN) {
+        if (g !== model) tries.push({ provider: 'gemini', model: g });
+      }
+    }
     if (provider === 'hf') {
       for (const h of HF_CHAIN) {
         if (h !== model) tries.push({ provider: 'hf', model: h });

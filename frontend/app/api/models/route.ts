@@ -29,11 +29,11 @@ export async function GET() {
         vision: String(sorted[0].architecture?.modality || '').includes('image'),
       });
     }
-    models.push({ id: 'gemini:gemini-2.5-pro', name: 'Gemini 2.5 Pro', tag: 'Reasoning · Google', vision: true });
+    models.push({ id: 'gemini:gemini-3.5-pro', name: 'Gemini 3.5 Pro', tag: 'Reasoning · Google', vision: true });
   } catch {}
 
   // 3) HuggingFace
-  models.push({ id: 'gemini:gemini-2.5-flash', name: 'Gemini 2.5 Flash', tag: 'Google · Free', vision: true });
+  models.push({ id: 'gemini:gemini-3.6-flash', name: 'Gemini 3.6 Flash', tag: 'Google · Free', vision: true });
 
   return NextResponse.json({ models });
 }
