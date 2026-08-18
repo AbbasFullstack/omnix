@@ -51,6 +51,7 @@ export default function Home() {
   useEffect(() => {
     const handleUser = async (u: any) => {
       setUser(u);
+      setAuthLoading(false);
       if (u) {
         await loadGithub(u.id);
         await saveGithubData(u);
