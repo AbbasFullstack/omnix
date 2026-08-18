@@ -29,16 +29,11 @@ export async function GET() {
         vision: String(sorted[0].architecture?.modality || '').includes('image'),
       });
     }
-    models.push({
-      id: 'hf:deepseek-ai/DeepSeek-V4-Pro',
-      name: 'DeepSeek V4 Pro',
-      tag: 'Reasoning · 1.6T',
-      vision: false,
-    });
+    models.push({ id: 'gemini:gemini-2.5-pro', name: 'Gemini 2.5 Pro', tag: 'Reasoning · Google', vision: true });
   } catch {}
 
   // 3) HuggingFace
-  models.push({ id: 'hf:Qwen/Qwen3-235B-A22B', name: 'Qwen3 235B', tag: 'HuggingFace · Pro', vision: false });
+  models.push({ id: 'gemini:gemini-2.5-flash', name: 'Gemini 2.5 Flash', tag: 'Google · Free', vision: true });
 
   return NextResponse.json({ models });
 }

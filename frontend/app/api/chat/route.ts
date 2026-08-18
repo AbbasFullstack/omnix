@@ -69,6 +69,8 @@ export async function POST(req: NextRequest) {
         ? 'https://openrouter.ai/api/v1/chat/completions'
         : p === 'hf'
         ? 'https://router.huggingface.co/v1/chat/completions'
+        : p === 'gemini'
+        ? 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
         : 'https://api.groq.com/openai/v1/chat/completions';
     const headersFor = (p: string) => {
       const h: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -78,6 +80,8 @@ export async function POST(req: NextRequest) {
         h['X-Title'] = 'OmniX';
       } else if (p === 'hf') {
         h.Authorization = `Bearer ${process.env.HF_TOKEN}`;
+      } else if (p === 'gemini') {
+        h.Authorization = `Bearer ${process.env.GEMINI_API_KEY}`;
       } else {
         h.Authorization = `Bearer ${process.env.GROQ_API_KEY}`;
       }
