@@ -39,6 +39,7 @@ export default function Home() {
   const [memoryList, setMemoryList] = useState<any[]>([]);
   const [memoryInput, setMemoryInput] = useState('');
   const [speakOn, setSpeakOn] = useState(false);
+  const [speakingId, setSpeakingId] = useState<number | null>(null);
   const [image, setImage] = useState<string | null>(null);
   const [showRepo, setShowRepo] = useState(false);
   const [repoUrl, setRepoUrl] = useState('');
@@ -205,16 +206,16 @@ export default function Home() {
     setSpeakOn(localStorage.getItem('omnix_tts') === '1');
   }, []);
 
-  const speak = (text: string) => {
+  const speak = (text: string, id?: number) => {
     try {
       const clean = text.replace(/[*#`_]/g, '').slice(0, 500);
-      speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(clean);
       (window as any).__omnix_u = u;
-      u.lang = 'hi-IN';
-      u.rate = 1;
-      u.pitch = 1;
-      setTimeout(() => speechSynthesis.speak(u), 50);
+      u.lang = 'en-US';
+      u.onstart = () => setSpeakingId(id ?? -1);
+      u.onend = () => setSpeakingId(null);
+      u.onerror = () => setSpeakingId(null);
+      speechSynthesis.speak(u);
     } catch {}
   };
 
@@ -609,10 +610,10 @@ export default function Home() {
                     )}
                     {!streaming && m.text && (
                       <button
-                        onClick={() => speak(m.text)}
+                        onClick={() => (speakingId === i ? speechSynthesis.cancel() : speak(m.text, i))}
                         className="mt-2 flex items-center gap-1 text-[9px] text-white/40 hover:text-orange-300 transition"
                       >
-                        <Volume2 className="w-3 h-3" /> Suno
+                        <Volume2 className="w-3 h-3" /> {speakingId === i ? '⏹ Stop' : 'Suno'}
                       </button>
                     )}
                   </div>
