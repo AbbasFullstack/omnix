@@ -97,13 +97,7 @@ export default function Home() {
   };
 
   const connectGithub = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'github',
-      options: {
-        scopes: 'repo',
-        redirectTo: 'https://omnix-pi.vercel.app',
-      },
-    });
+    const { error } = await supabase.auth.linkIdentity({ provider: 'github' });
     if (error) alert('GitHub connect error: ' + error.message);
   };
 
