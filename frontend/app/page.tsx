@@ -73,8 +73,21 @@ export default function Home() {
     setGithubRow(data);
   };
 
-  const connectGithub = () => {
-    window.location.href = '/api/github/connect';
+  const connectGithub = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'github',
+      options: {
+        scopes: 'repo',
+        redirectTo: window.location.origin,
+      },
+    });
+    if (error) alert('GitHub connect error: ' + error.message);
+  };
+
+  const disconnectGithub = async () => {
+    await supabase.from('user_github').delete().eq('user_id', user.id);
+    setGithubRow(null);
+    alert('✅ GitHub disconnected!');
   };
 
   const loadHistory = async () => {
@@ -396,10 +409,17 @@ export default function Home() {
                 <Palette className="w-5 h-5 mx-auto mb-2 text-orange-400" />
                 <p className="text-[11px] font-bold">Image Mode {imageMode ? 'ON' : 'OFF'}</p>
               </button>
-              <button onClick={connectGithub} className="p-4 rounded-2xl bg-white/5 border border-white/10 text-center col-span-2">
-                <GitBranch className="w-5 h-5 mx-auto mb-2 text-emerald-400" />
-                <p className="text-[11px] font-bold">{githubRow ? 'GitHub Connected: ' + githubRow.login : 'Connect GitHub'}</p>
-              </button>
+              {githubRow ? (
+                <button onClick={disconnectGithub} className="p-4 rounded-2xl bg-red-500/10 border border-red-500/30 text-center col-span-2">
+                  <GitBranch className="w-5 h-5 mx-auto mb-2 text-red-400" />
+                  <p className="text-[11px] font-bold text-red-300">Disconnect GitHub ({githubRow.login})</p>
+                </button>
+              ) : (
+                <button onClick={connectGithub} className="p-4 rounded-2xl bg-white/5 border border-white/10 text-center col-span-2">
+                  <GitBranch className="w-5 h-5 mx-auto mb-2 text-emerald-400" />
+                  <p className="text-[11px] font-bold">Connect GitHub</p>
+                </button>
+              )}
             </div>
           </div>
         </div>
