@@ -1,14 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { groqModels } from '@/lib/groq';
 import { getMemories } from '@/lib/supabase-server';
+
+const OR_URL = 'https://openrouter.ai/api/v1/chat/completions';
+
+async function orHeaders() {
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+    'HTTP-Referer': 'https://omnix-pi.vercel.app',
+    'X-Title': 'OmniX',
+  };
+}
+
+async function freeModels(): Promise<any[]> {
+  try {
+    const r = await fetch('https://openrouter.ai/api/v1/models');
+    const j = await r.json();
+    return (j.data || []).filter((m: any) => typeof m.id === 'string' && m.id.endsWith(':free'));
+  } catch {
+    return [];
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
     const { messages, modelId, image, stream } = await req.json();
 
     const idx = (modelId || '').indexOf(':');
-    const provider = idx > -1 ? modelId.slice(0, idx) : 'groq';
-    const model = idx > -1 ? modelId.slice(idx + 1) : 'openai/gpt-oss-20b';
+    const model = idx > -1 ? modelId.slice(idx + 1) : '';
 
     const mem = await getMemories();
     const memLine = mem.length
@@ -37,112 +56,52 @@ export async function POST(req: NextRequest) {
       ];
     }
 
-    const tries: { provider: string; model: string }[] = [{ provider, model }];
+    const free = await freeModels();
+    const tries: { model: string }[] = model ? [{ model }] : [];
     if (image) {
-      tries.push({ provider: 'groq', model: 'llama-3.2-90b-vision-preview' });
-      try {
-        const r = await fetch('https://openrouter.ai/api/v1/models');
-        const j = await r.json();
-        const visionFree = (j.data || [])
-          .filter((m: any) => m.id?.endsWith(':free') && String(m.architecture?.modality || '').includes('image'))
-          .slice(0, 2);
-        for (const v of visionFree) tries.push({ provider: 'or', model: v.id });
-      } catch {}
+      const vis = free
+        .filter((m) => String(m.architecture?.modality || '').includes('image'))
+        .slice(0, 2);
+      for (const v of vis) if (!tries.some((t) => t.model === v.id)) tries.push({ model: v.id });
     }
-    const HF_CHAIN = [
-      'deepseek-ai/DeepSeek-V4-Pro',
-      'deepseek-ai/DeepSeek-V4-Flash',
-      'Qwen/Qwen3-235B-A22B',
-      'Qwen/Qwen3-8B',
-      'deepseek-ai/DeepSeek-R1-0528-Qwen3-8B',
-    ];
-    const GEM_CHAIN = ['gemini-3.6-flash', 'gemini-3.5-pro', 'gemini-3-pro', 'gemini-2.5-flash'];
-    if (provider === 'gemini') {
-      for (const g of GEM_CHAIN) {
-        if (g !== model) tries.push({ provider: 'gemini', model: g });
-      }
+    for (const m of free.slice(0, 3)) {
+      if (!tries.some((t) => t.model === m.id)) tries.push({ model: m.id });
     }
-    if (provider === 'hf') {
-      for (const h of HF_CHAIN) {
-        if (h !== model) tries.push({ provider: 'hf', model: h });
-      }
-    }
-    try {
-      const orr = await fetch('https://openrouter.ai/api/v1/models');
-      const orj = await orr.json();
-      const orfree = (orj.data || [])
-        .filter((m: any) => String(m.id || '').endsWith(':free'))
-        .slice(0, 3);
-      for (const m of orfree) tries.push({ provider: 'or', model: m.id });
-    } catch {}
-    const live = await groqModels();
-    for (const g of live.slice(0, 2)) tries.push({ provider: 'groq', model: g });
 
-    const urlFor = (p: string) =>
-      p === 'or'
-        ? 'https://openrouter.ai/api/v1/chat/completions'
-        : p === 'hf'
-        ? 'https://router.huggingface.co/v1/chat/completions'
-        : p === 'gemini'
-        ? 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
-        : p === 'samba'
-        ? 'https://api.sambanova.ai/v1/chat/completions'
-        : 'https://api.groq.com/openai/v1/chat/completions';
-    const headersFor = (p: string) => {
-      const h: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (p === 'or') {
-        h.Authorization = `Bearer ${process.env.OPENROUTER_API_KEY}`;
-        h['HTTP-Referer'] = 'https://omnix-pi.vercel.app';
-        h['X-Title'] = 'OmniX';
-      } else if (p === 'hf') {
-        h.Authorization = `Bearer ${process.env.HF_TOKEN}`;
-      } else if (p === 'gemini') {
-        h.Authorization = `Bearer ${process.env.GEMINI_API_KEY}`;
-      } else if (p === 'samba') {
-        h.Authorization = `Bearer ${process.env.SAMBA_KEY}`;
-      } else {
-        h.Authorization = `Bearer ${process.env.GROQ_API_KEY}`;
-      }
-      return h;
-    };
-
-    // JSON mode (AI Writer waghera)
     if (!stream) {
-      let lastError = '';
+      let lastErr = '';
       for (const t of tries) {
         try {
-          const res = await fetch(urlFor(t.provider), {
+          const res = await fetch(OR_URL, {
             method: 'POST',
-            headers: headersFor(t.provider),
+            headers: await orHeaders(),
             body: JSON.stringify({ model: t.model, messages: msgs }),
           });
           const data = await res.json();
           const text = data?.choices?.[0]?.message?.content;
           if (text) return NextResponse.json({ reply: text, used: t.model });
-          lastError = data?.error?.message || 'HTTP ' + res.status;
+          lastErr = data?.error?.message || 'HTTP ' + res.status;
         } catch (e: any) {
-          lastError = e.message;
+          lastErr = e.message;
         }
       }
-      return NextResponse.json({ reply: '⚠️ ' + lastError });
+      return NextResponse.json({ reply: '⚠️ ' + lastErr });
     }
 
-    // STREAMING mode (SSE)
     const enc = new TextEncoder();
     let lastErr = '';
     for (const t of tries) {
-      const res = await fetch(urlFor(t.provider), {
+      const res = await fetch(OR_URL, {
         method: 'POST',
-        headers: headersFor(t.provider),
+        headers: await orHeaders(),
         body: JSON.stringify({ model: t.model, messages: msgs, stream: true }),
       });
       if (!res.ok || !res.body) {
-        lastErr += t.provider + ':' + t.model + '→' + res.status + ' | ';
+        lastErr += t.model + '→' + res.status + ' | ';
         continue;
       }
       const upstream = res.body;
       const used = t.model;
-
       const out = new ReadableStream({
         async start(controller) {
           controller.enqueue(enc.encode(`data: ${JSON.stringify({ used })}\n\n`));
@@ -173,7 +132,6 @@ export async function POST(req: NextRequest) {
           controller.close();
         },
       });
-
       return new Response(out, {
         headers: {
           'Content-Type': 'text/event-stream',
