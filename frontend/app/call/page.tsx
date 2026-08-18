@@ -24,15 +24,25 @@ export default function CallPage() {
     const urdu = /[\u0600-\u06FF]/.test(clean);
     const g = (tl: string) =>
       'https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=' + tl + '&text=' + encodeURIComponent(clean);
-    const urls =
+    const chain: { url: string; rate: number }[] =
       voice === 'male'
-        ? ['https://api.streamelements.com/kappa/v2/speech?voice=Brian&text=' + encodeURIComponent(clean), g('en')]
+        ? [
+            { url: 'https://api.streamelements.com/kappa/v2/speech?voice=Brian&text=' + encodeURIComponent(clean), rate: 1 },
+            { url: 'https://api.streamelements.com/kappa/v2/speech?voice=Russell&text=' + encodeURIComponent(clean), rate: 1 },
+            { url: g('en'), rate: 0.78 },
+          ]
         : urdu
-        ? [g('ur'), g('hi')]
-        : [g('en'), 'https://api.streamelements.com/kappa/v2/speech?voice=Amy&text=' + encodeURIComponent(clean)];
+        ? [
+            { url: g('ur'), rate: 1 },
+            { url: g('hi'), rate: 1 },
+          ]
+        : [
+            { url: g('en'), rate: 1 },
+            { url: 'https://api.streamelements.com/kappa/v2/speech?voice=Amy&text=' + encodeURIComponent(clean), rate: 1 },
+          ];
     let i = 0;
     const tryNext = () => {
-      if (i >= urls.length) {
+      if (i >= chain.length) {
         try {
           const u = new SpeechSynthesisUtterance(clean);
           (window as any).__omnix_u = u;
@@ -44,9 +54,12 @@ export default function CallPage() {
         }
         return;
       }
-      const a = new Audio(urls[i]);
+      const a = new Audio(chain[i].url);
+      const rate = chain[i].rate;
       i++;
-      a.playbackRate = 0.9;
+      a.onplay = () => {
+        a.playbackRate = rate;
+      };
       a.onended = onEnd;
       a.onerror = tryNext;
       a.play().catch(tryNext);
