@@ -1,45 +1,63 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabase, getSupabaseUser } from '@/lib/supabase-server';
+import { createClient } from '@supabase/supabase-js';
 
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get('code');
-  const state = req.nextUrl.searchParams.get('state');
-  const saved = req.cookies.get('gh_state')?.value;
+  const error = req.nextUrl.searchParams.get('error');
 
-  const host = (req.headers.get('x-forwarded-host') || req.headers.get('host') || '').split(':')[0];
-  const proto = req.headers.get('x-forwarded-proto') || 'https';
-  const home = `${proto}://${host}`;
-
-  if (!code || !state || state !== saved) {
-    return NextResponse.redirect(home + '/?gh=error');
+  if (error) {
+    return NextResponse.redirect(new URL('/?error=github_denied', req.url));
+  }
+  if (!code) {
+    return NextResponse.redirect(new URL('/?error=no_code', req.url));
   }
 
-  const user = await getSupabaseUser();
-  if (!user) return NextResponse.redirect(home + '/?gh=login');
+  try {
+    // 1. Exchange code for access token
+    const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        client_id: process.env.GITHUB_CLIENT_ID,
+        client_secret: process.env.GITHUB_CLIENT_SECRET,
+        code,
+      }),
+    });
+    const tokenData = await tokenRes.json();
+    if (tokenData.error) throw new Error(tokenData.error_description);
 
-  const r = await fetch('https://github.com/login/oauth/access_token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({
-      client_id: process.env.GITHUB_CLIENT_ID,
-      client_secret: process.env.GITHUB_CLIENT_SECRET,
-      code,
-    }),
-  });
-  const j = await r.json();
-  if (!j.access_token) return NextResponse.redirect(home + '/?gh=error');
+    const accessToken = tokenData.access_token;
 
-  const ur = await fetch('https://api.github.com/user', {
-    headers: { Authorization: `Bearer ${j.access_token}`, 'User-Agent': 'OmniX' },
-  });
-  const uj = await ur.json();
+    // 2. Fetch GitHub User Info
+    const userRes = await fetch('https://api.github.com/user', {
+      headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/vnd.github.v3+json' },
+    });
+    const githubUser = await userRes.json();
 
-  const supabase = await getSupabase();
-  await supabase
-    .from('user_github')
-    .upsert({ user_id: user.id, access_token: j.access_token, login: uj.login });
+    // 3. Save to Supabase
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
 
-  const res = NextResponse.redirect(home + '/?gh=connected');
-  res.cookies.set('gh_state', '', { maxAge: 0, path: '/' });
-  return res;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.redirect(new URL('/login', req.url));
+
+    await supabase.from('user_github').upsert({
+      user_id: user.id,
+      github_id: githubUser.id,
+      login: githubUser.login,
+      avatar_url: githubUser.avatar_url,
+      access_token: accessToken,
+    }, { onConflict: 'user_id' });
+
+    return NextResponse.redirect(new URL('/?github=success', req.url));
+
+  } catch (err: any) {
+    console.error('GitHub OAuth Error:', err);
+    return NextResponse.redirect(new URL('/?error=github_failed', req.url));
+  }
 }

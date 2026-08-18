@@ -74,9 +74,7 @@ export default function Home() {
   };
 
   const connectGithub = () => {
-    const id = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID;
-    const redir = encodeURIComponent(window.location.origin + '/api/github/callback');
-    window.location.href = `https://github.com/login/oauth/authorize?client_id=${id}&redirect_uri=${redir}&scope=repo`;
+    window.location.href = '/api/github/connect';
   };
 
   const loadHistory = async () => {
