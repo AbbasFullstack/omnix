@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
-import { groqModels } from '@/lib/groq';
 
 export async function GET() {
   const models: { id: string; name: string; tag: string; vision: boolean }[] = [];
+
+  models.push({ id: 'samba:DeepSeek-V3.2', name: 'DeepSeek V3.2', tag: 'SambaNova · Reasoning', vision: false });
+  models.push({ id: 'samba:Meta-Llama-3.3-70B-Instruct', name: 'Llama 3.3 70B', tag: 'SambaNova · Fast', vision: false });
+  models.push({ id: 'samba:gemma-4-31B-it', name: 'Gemma 4 Vision', tag: 'SambaNova · Photos', vision: true });
 
   let free: any[] = [];
   try {
@@ -10,32 +13,17 @@ export async function GET() {
     const j = await r.json();
     free = (j.data || []).filter((m: any) => typeof m.id === 'string' && m.id.endsWith(':free'));
   } catch {}
-
   const prio = ['deepseek', 'qwen', 'gemma', 'mistral', 'llama', 'step', 'dots'];
   const sorted = [...free].sort((a: any, b: any) => {
     const pa = prio.findIndex(k => a.id.includes(k));
     const pb = prio.findIndex(k => b.id.includes(k));
     return (pa === -1 ? 99 : pa) - (pb === -1 ? 99 : pb);
   });
-
   const base = (m: any) => (String(m.id).split('/')[1] || m.id).replace(':free', '');
   const isVis = (m: any) => String(m.architecture?.modality || '').includes('image');
-
-  const pick1 = sorted[0];
-  const pickR = sorted.find((m) => m.id.includes('r1') || m.id.includes('reason')) || sorted[1];
-  const pickV = sorted.find((m) => isVis(m)) || sorted[2];
-
-  const push = (m: any, name: string, tag: string) => {
-    if (m) models.push({ id: 'or:' + m.id, name, tag, vision: isVis(m) });
-  };
-
-  const ids = await groqModels();
-  const gq = ids.find(i => i.includes('gpt-oss-120b')) || ids[0];
-  if (gq) models.push({ id: 'groq:' + gq, name: 'OmniX Fast', tag: 'Groq · Fastest', vision: false });
-
-  push(pick1, base(pick1), 'OpenRouter · Pro');
-  push(pickR, 'Reasoning', 'OpenRouter · Think');
-  push(pickV, 'Vision 📸', 'OpenRouter · Photos');
+  if (sorted[0]) models.push({ id: 'or:' + sorted[0].id, name: base(sorted[0]), tag: 'OpenRouter · Pro', vision: isVis(sorted[0]) });
+  const rv = sorted.find((m) => m.id.includes('r1') || m.id.includes('reason'));
+  if (rv) models.push({ id: 'or:' + rv.id, name: 'Reasoning', tag: 'OpenRouter · Think', vision: false });
 
   return NextResponse.json({ models });
 }

@@ -85,6 +85,8 @@ export async function POST(req: NextRequest) {
         ? 'https://router.huggingface.co/v1/chat/completions'
         : p === 'gemini'
         ? 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+        : p === 'samba'
+        ? 'https://api.sambanova.ai/v1/chat/completions'
         : 'https://api.groq.com/openai/v1/chat/completions';
     const headersFor = (p: string) => {
       const h: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -96,6 +98,8 @@ export async function POST(req: NextRequest) {
         h.Authorization = `Bearer ${process.env.HF_TOKEN}`;
       } else if (p === 'gemini') {
         h.Authorization = `Bearer ${process.env.GEMINI_API_KEY}`;
+      } else if (p === 'samba') {
+        h.Authorization = `Bearer ${process.env.SAMBA_KEY}`;
       } else {
         h.Authorization = `Bearer ${process.env.GROQ_API_KEY}`;
       }
