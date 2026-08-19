@@ -37,6 +37,10 @@ export default function Home() {
   const [imageMode, setImageMode] = useState(false);
 
   const [githubRow, setGithubRow] = useState<any>(null);
+  const [reposOpen, setReposOpen] = useState(false);
+  const [reposList, setReposList] = useState<any[]>([]);
+  const [reposLoading, setReposLoading] = useState(false);
+  const [importedRepos, setImportedRepos] = useState<string[]>([]);
   const [newPass, setNewPass] = useState('');
   const [newPass2, setNewPass2] = useState('');
 
@@ -105,6 +109,37 @@ export default function Home() {
     await supabase.from('user_github').delete().eq('user_id', user.id);
     setGithubRow(null);
     alert('✅ GitHub disconnected!');
+  };
+
+  const openRepos = async () => {
+    setReposOpen(true);
+    setReposLoading(true);
+    try {
+      const { data } = await supabase.from('imported_repos').select('full_name').eq('user_id', user.id);
+      setImportedRepos((data || []).map((r: any) => r.full_name));
+      const sess = await supabase.auth.getSession();
+      const token = sess.data.session?.provider_token || '';
+      const headers: any = { Accept: 'application/vnd.github.v3+json' };
+      if (token) headers.Authorization = 'Bearer ' + token;
+      let res = token ? await fetch('https://api.github.com/user/repos?per_page=100&sort=updated', { headers }) : null;
+      if (!res || !res.ok) res = await fetch('https://api.github.com/users/' + githubRow.login + '/repos?per_page=100&sort=updated', { headers });
+      const j = await res.json();
+      setReposList(Array.isArray(j) ? j : []);
+    } catch {
+      setReposList([]);
+    }
+    setReposLoading(false);
+  };
+
+  const importRepo = async (repo: any) => {
+    const { error } = await supabase.from('imported_repos').upsert({
+      user_id: user.id,
+      full_name: repo.full_name,
+      html_url: repo.html_url,
+      private: repo.private,
+    }, { onConflict: 'user_id,full_name' });
+    if (!error) setImportedRepos(prev => [...prev, repo.full_name]);
+    else alert('Import error: ' + error.message);
   };
 
   const loadHistory = async () => {
@@ -325,9 +360,9 @@ export default function Home() {
             <p className="text-[9px] text-white/40 leading-tight truncate">All-in-One Personal AI</p>
           </div>
           {githubRow && (
-            <span className="px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[9px] font-bold flex items-center gap-1 max-w-[110px] truncate">
+            <button onClick={openRepos} className="px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[9px] font-bold flex items-center gap-1 max-w-[110px] truncate">
               <GitBranch className="w-3 h-3 shrink-0" /> {githubRow.login}
-            </span>
+            </button>
           )}
           <button onClick={() => supabase.auth.signOut()} className="p-2 rounded-lg bg-white/5 border border-white/10">
             <LogOut className="w-3.5 h-3.5 text-white/50" />
@@ -412,6 +447,38 @@ export default function Home() {
           <p className="text-[8px] text-white/30 text-center mt-2">OmniX - Abbas Hussain ka personal AI workspace</p>
         </div>
       </div>
+
+      {reposOpen && (
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex flex-col" onClick={() => setReposOpen(false)}>
+          <div className="flex-1 bg-[#0d0d0d] border border-white/10 rounded-t-3xl mt-10 flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="p-4 border-b border-white/[0.06] flex items-center gap-2">
+              <GitBranch className="w-4 h-4 text-emerald-400" />
+              <p className="text-sm font-bold flex-1">{githubRow?.login} · Repos</p>
+              <button onClick={() => setReposOpen(false)} className="p-2 rounded-lg bg-white/5"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              {reposLoading && <p className="text-center text-[10px] text-white/40 py-8 animate-pulse">Repos load ho rahi hain...</p>}
+              {!reposLoading && reposList.length === 0 && <p className="text-center text-[10px] text-white/40 py-8">Koi repo nahi mili</p>}
+              {reposList.map((r: any) => (
+                <div key={r.id} className="p-3 rounded-xl bg-white/[0.04] border border-white/[0.07]">
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] font-bold truncate">{r.name}{r.private ? ' 🔒' : ''}</p>
+                      <p className="text-[9px] text-white/40 truncate">{r.description || 'No description'}</p>
+                      <p className="text-[8px] text-white/30 mt-1">{r.language || '—'} · ⭐ {r.stargazers_count}</p>
+                    </div>
+                    {importedRepos.includes(r.full_name) ? (
+                      <span className="text-[9px] font-bold text-emerald-400 border border-emerald-500/30 rounded-lg px-2 py-1.5 shrink-0">✓ Imported</span>
+                    ) : (
+                      <button onClick={() => importRepo(r)} className="text-[9px] font-bold text-orange-300 border border-orange-500/40 rounded-lg px-2 py-1.5 shrink-0">Import</button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {plusOpen && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-end" onClick={() => setPlusOpen(false)}>
