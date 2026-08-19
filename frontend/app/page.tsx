@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Zap, Send, Image as ImageIcon, X, GitBranch, LogOut, Mic, History, Plus,
   Brain, Volume2, VolumeX, Palette, Phone, Presentation, Clapperboard,
-  Menu, Settings, Info, ChevronLeft, Trash2,
+  Menu, Settings, Info, ChevronLeft, Trash2, Music,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
@@ -548,7 +548,11 @@ export default function Home() {
                 <Phone className="w-5 h-5 mx-auto mb-2 text-emerald-400" />
                 <p className="text-[11px] font-bold">Voice Call</p>
               </a>
-              <button onClick={() => { setImageMode(!imageMode); setPlusOpen(false); }} className={`p-4 rounded-2xl border text-center ${imageMode ? 'bg-orange-500/20 border-orange-500/50' : 'bg-white/5 border-white/10'}`}>
+              <a href="/audio" className="p-4 rounded-2xl bg-white/5 border border-white/10 text-center">
+                <Music className="w-5 h-5 mx-auto mb-2 text-purple-400" />
+                <p className="text-[11px] font-bold">Create Audio</p>
+              </a>
+              <button onClick={() => { setImageMode(!imageMode); setPlusOpen(false); }} className={`p-4 rounded-2xl border text-center col-span-2 ${imageMode ? 'bg-orange-500/20 border-orange-500/50' : 'bg-white/5 border-white/10'}`}>
                 <Palette className="w-5 h-5 mx-auto mb-2 text-orange-400" />
                 <p className="text-[11px] font-bold">Image Mode {imageMode ? 'ON' : 'OFF'}</p>
               </button>
