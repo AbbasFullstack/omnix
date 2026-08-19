@@ -40,7 +40,9 @@ export default function Home() {
   const [reposOpen, setReposOpen] = useState(false);
   const [reposList, setReposList] = useState<any[]>([]);
   const [reposLoading, setReposLoading] = useState(false);
-  const [importedRepos, setImportedRepos] = useState<string[]>([]);
+  const [importedRepos, setImportedRepos] = useState<any[]>([]);
+  const [activeRepo, setActiveRepo] = useState<any>(null);
+  const [repoPickerOpen, setRepoPickerOpen] = useState(false);
   const [newPass, setNewPass] = useState('');
   const [newPass2, setNewPass2] = useState('');
 
@@ -98,6 +100,13 @@ export default function Home() {
   const loadGithub = async (uid: string) => {
     const { data } = await supabase.from('user_github').select('*').eq('user_id', uid).maybeSingle();
     setGithubRow(data);
+    if (data) loadImported();
+  };
+
+  const loadImported = async () => {
+    const { data } = await supabase.from('imported_repos').select('*').eq('user_id', user.id).order('imported_at', { ascending: false });
+    setImportedRepos(data || []);
+    setActiveRepo((data || []).find((r: any) => r.is_active) || (data || [])[0] || null);
   };
 
   const connectGithub = async () => {
@@ -115,8 +124,7 @@ export default function Home() {
     setReposOpen(true);
     setReposLoading(true);
     try {
-      const { data } = await supabase.from('imported_repos').select('full_name').eq('user_id', user.id);
-      setImportedRepos((data || []).map((r: any) => r.full_name));
+      await loadImported();
       const sess = await supabase.auth.getSession();
       const token = sess.data.session?.provider_token || '';
       const headers: any = { Accept: 'application/vnd.github.v3+json' };
@@ -137,9 +145,23 @@ export default function Home() {
       full_name: repo.full_name,
       html_url: repo.html_url,
       private: repo.private,
+      is_active: true,
     }, { onConflict: 'user_id,full_name' });
-    if (!error) setImportedRepos(prev => [...prev, repo.full_name]);
-    else alert('Import error: ' + error.message);
+    if (!error) {
+      await supabase.from('imported_repos').update({ is_active: false }).eq('user_id', user.id).neq('full_name', repo.full_name);
+      await loadImported();
+    } else alert('Import error: ' + error.message);
+  };
+
+  const disconnectRepo = async (fullName: string) => {
+    await supabase.from('imported_repos').delete().eq('user_id', user.id).eq('full_name', fullName);
+    await loadImported();
+  };
+
+  const makeActive = async (fullName: string) => {
+    await supabase.from('imported_repos').update({ is_active: false }).eq('user_id', user.id);
+    await supabase.from('imported_repos').update({ is_active: true }).eq('user_id', user.id).eq('full_name', fullName);
+    await loadImported();
   };
 
   const loadHistory = async () => {
@@ -440,6 +462,9 @@ export default function Home() {
             <button onClick={toggleVoice} className="p-3 rounded-xl bg-white/5 border border-white/10 shrink-0">
               <Mic className="w-4 h-4 text-white/60" />
             </button>
+            <button onClick={() => (importedRepos.length ? setRepoPickerOpen(true) : openRepos())} className="p-3 rounded-xl bg-white/5 border border-white/10 shrink-0">
+              <GitBranch className="w-4 h-4 text-emerald-400" />
+            </button>
             <button onClick={send} disabled={loading} className="p-3 rounded-xl bg-gradient-to-br from-orange-500 to-red-600 shrink-0 disabled:opacity-50">
               <Send className="w-4 h-4 text-white" />
             </button>
@@ -463,12 +488,12 @@ export default function Home() {
                 <div key={r.id} className="p-3 rounded-xl bg-white/[0.04] border border-white/[0.07]">
                   <div className="flex items-center gap-2">
                     <div className="flex-1 min-w-0">
-                      <p className="text-[11px] font-bold truncate">{r.name}{r.private ? ' 🔒' : ''}</p>
+                      <p className="text-[11px] font-bold truncate">{r.name}{r.private ? ' 🔒' : ''}{activeRepo?.full_name === r.full_name ? ' · ✅' : ''}</p>
                       <p className="text-[9px] text-white/40 truncate">{r.description || 'No description'}</p>
                       <p className="text-[8px] text-white/30 mt-1">{r.language || '—'} · ⭐ {r.stargazers_count}</p>
                     </div>
-                    {importedRepos.includes(r.full_name) ? (
-                      <span className="text-[9px] font-bold text-emerald-400 border border-emerald-500/30 rounded-lg px-2 py-1.5 shrink-0">✓ Imported</span>
+                    {importedRepos.some((x: any) => x.full_name === r.full_name) ? (
+                      <button onClick={() => disconnectRepo(r.full_name)} className="text-[9px] font-bold text-red-300 border border-red-500/40 rounded-lg px-2 py-1.5 shrink-0">Disconnect</button>
                     ) : (
                       <button onClick={() => importRepo(r)} className="text-[9px] font-bold text-orange-300 border border-orange-500/40 rounded-lg px-2 py-1.5 shrink-0">Import</button>
                     )}
@@ -476,6 +501,32 @@ export default function Home() {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {repoPickerOpen && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-end" onClick={() => setRepoPickerOpen(false)}>
+          <div className="w-full bg-[#151515] border-t border-white/10 rounded-t-3xl p-4 pb-8" onClick={e => e.stopPropagation()}>
+            <div className="w-10 h-1 mx-auto mb-4 rounded-full bg-white/20" />
+            <p className="text-[10px] text-white/40 font-bold uppercase mb-2">Connected Repo</p>
+            {activeRepo ? (
+              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 mb-3">
+                <p className="text-[11px] font-bold text-emerald-300">✓ {activeRepo.full_name}</p>
+                <p className="text-[8px] text-white/40 mt-1">AI ab is repo par kaam karega</p>
+              </div>
+            ) : (
+              <p className="text-[10px] text-white/40 mb-3">Koi repo connected nahi</p>
+            )}
+            <p className="text-[10px] text-white/40 font-bold uppercase mb-2">Switch Repo</p>
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {importedRepos.map((r: any) => (
+                <button key={r.id} onClick={() => { makeActive(r.full_name); setRepoPickerOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-xl border text-[10px] font-bold ${activeRepo?.full_name === r.full_name ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : 'bg-white/[0.04] border-white/[0.07]'}`}>
+                  {r.full_name}
+                </button>
+              ))}
+            </div>
+            <button onClick={() => { setRepoPickerOpen(false); openRepos(); }} className="w-full mt-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-[10px] font-bold">+ Nayi Repo Import</button>
           </div>
         </div>
       )}
