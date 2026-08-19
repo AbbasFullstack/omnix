@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
   } else if (typeof rawAudio === 'string') {
     b64 = rawAudio;
   } else if (typeof msg?.content === 'string' && msg.content.startsWith('data:audio')) {
-    const mm = msg.content.match(/^data:(audio\/[a-z0-9]+);base64,(.+)$/s);
+    const mm = msg.content.match(/^data:(audio\/[a-z0-9]+);base64,([\s\S]+)$);
     if (mm) { mime = mm[1]; b64 = mm[2]; }
   }
   if (!b64) return NextResponse.json({ error: 'Audio generate nahi hua', debug: Object.keys(msg || {}) });
