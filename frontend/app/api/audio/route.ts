@@ -4,14 +4,7 @@ export async function POST(req: NextRequest) {
   const { text } = await req.json();
   if (!text) return NextResponse.json({ error: 'text missing' }, { status: 400 });
 
-  let modelId = '';
-  try {
-    const r = await fetch('https://openrouter.ai/api/v1/models');
-    const j = await r.json();
-    const list = j.data || [];
-    const m = list.find((m: any) => m.id.includes('deepgram') && m.id.includes('flux')) || list.find((m: any) => m.id.includes('deepgram'));
-    modelId = m?.id || '';
-  } catch {}
+  const modelId = 'deepgram/flux-tts:free';
   if (!modelId) return NextResponse.json({ error: 'TTS model nahi mila' });
 
   const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
