@@ -279,6 +279,13 @@ export default function Home() {
     if (error) alert(error.message);
   };
 
+  const signup = async () => {
+    if (!loginEmail || loginPass.length < 6) return alert('Email aur kam az kam 6 character password likhein');
+    const { error } = await supabase.auth.signUp({ email: loginEmail, password: loginPass });
+    if (error) alert(error.message);
+    else alert('✅ Account ban gaya! Ab Login button dabayein.');
+  };
+
   const loginGoogle = async () => {
     await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } });
   };
@@ -298,6 +305,7 @@ export default function Home() {
           <input value={loginPass} onChange={e => setLoginPass(e.target.value)} type="password" placeholder="Password" className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-orange-500/50" />
           <button onClick={login} className="w-full py-3 rounded-xl bg-gradient-to-br from-orange-500 to-red-600 text-sm font-bold">Login</button>
           <button onClick={loginGoogle} className="w-full py-3 rounded-xl bg-white/5 border border-white/10 text-sm font-bold">Google se login</button>
+          <button onClick={signup} className="w-full py-3 rounded-xl bg-white/5 border border-orange-500/30 text-sm font-bold text-orange-300">Naya Account (Sign Up)</button>
         </div>
       </div>
     );
