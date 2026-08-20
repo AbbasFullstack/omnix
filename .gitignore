@@ -1,0 +1,50 @@
+```
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Environment variables
+.env
+.env.local
+*.env.*
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+
+# Logs
+*.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Coverage
+.coverage
+coverage/
+htmlcov/
+
+# Testing
+.pytest_cache/
+.mypy_cache/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+```
