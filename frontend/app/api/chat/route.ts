@@ -33,6 +33,23 @@ export async function POST(req: NextRequest) {
     const memLine = mem.length
       ? ' PERSONAL MEMORIES about the user: ' + mem.join('; ') + '. Use these naturally in conversation.'
       : '';
+    
+    // AI Repo Brain: inject active repo file tree if available
+    let repoBrainLine = '';
+    const { activeRepo } = req.headers.get('x-active-repo') ? JSON.parse(req.headers.get('x-active-repo') || '{}') : null;
+    if (activeRepo?.full_name) {
+      try {
+        const ghRes = await fetch(`https://api.github.com/repos/${activeRepo.full_name}/git/trees/${activeRepo.default_branch || 'main'}?recursive=1`, {
+          headers: activeRepo.token ? { Authorization: 'Bearer ' + activeRepo.token } : {},
+        });
+        if (ghRes.ok) {
+          const ghData = await ghRes.json();
+          const files = (ghData.tree || []).filter((f: any) => f.type === 'blob').map((f: any) => f.path).slice(0, 50);
+          if (files.length) repoBrainLine = ` REPO CONTEXT: User has imported GitHub repo "${activeRepo.full_name}". Key files: ${files.join(', ')}. Answer questions about this repo.`;
+        }
+      } catch {}
+    }
+    
     const callLine = call
       ? voice === 'male'
         ? ' VOICE CALL MODE: Keep reply under 60 words. If the user writes Roman Urdu, reply in Roman Urdu; if English, reply in English.'
@@ -43,7 +60,7 @@ export async function POST(req: NextRequest) {
       `a 16-year-old self-taught developer from Pakistan. NEVER reveal or mention underlying ` +
       `models like Llama, Meta, Qwen, DeepSeek or Gemma - you ARE OmniX. If asked who made you, ` +
       `always say Abbas Hussain. Be friendly and helpful; when the user writes Roman Urdu, reply ` +
-      `in Roman Urdu, otherwise English. Be concise (max 200 words).` + memLine + callLine;
+      `in Roman Urdu, otherwise English. Be concise (max 200 words).` + memLine + repoBrainLine + callLine;
 
     const msgs: any[] = [
       { role: 'system', content: system },
